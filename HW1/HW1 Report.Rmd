@@ -1,0 +1,698 @@
+---
+title: |
+  \vspace{5cm} <center> STP 531 </center>
+  <center> Applied Analysis of Variance </center>
+  <center> Homework 1 (Basic Set) </center>
+  
+author: "Nathan A. Nguyen"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  pdf_document:
+    keep_tex: true
+---
+
+```{r setup, include=FALSE, eval = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+library(tidyverse)
+library(formatR)
+library(jtools)
+setwd("C:\\Users\\natha\\Classes\\Current Classes\\STP 531 - Applied Analysis of Variance\\Homework\\HW1")
+```
+
+\newpage
+
+# Question 1
+
+Let samples of Young be group 1 and let the samples of Middle be group 2 from 16.10 and assume that the samples are$$
+\begin{aligned}
+\epsilon \ i.i.d \sim N(0,\sigma^{2})
+\end{aligned}
+$$
+
+and further assume the homogeneity of variances i.e.,
+
+$$
+\begin{aligned}
+\sigma_{1}^2 = \sigma_{2}^2 = \sigma \implies \sigma_{1} = \sigma_{2} = \sigma
+\end{aligned}
+$$
+
+```{r, eval = T, echo = T, message = F, warning = F}
+# created data frame by hand, website data was not matching the book
+Young <- c(23, 25, 21, 22, 21, 22, 20, 23, 19, 22, 19, 21)
+Middle <- c(28, 27, 27, 29, 26, 29, 27, 30, 28, 27, 26, 29)
+Elderly <- c(23, 20, 25, 21, 22, 23, 21, 20, 19, 20, 22, 21)
+data <- data.frame(Young, Middle, Elderly)
+```
+
+## Part A
+
+Find the standard error for $\bar{Y_1} - \bar{Y_2}$.
+
+We will need to find sample group average $\bar{Y_i}$ for $i = 1, 2$ and the individual group variances respectively, and since we assumed that the variances of group 1 and group 2 are the same we will utilize the pooled common variance, $s_{p}^2$, as an estimator for the $\sigma^2$.
+
+We define $s_{p}^2$ as:
+
+$$
+\begin{aligned}
+s_{p}^2 &= \frac{(n_{1}-1)s_{1}^2 + (n_{2}-1)s_{2}^2}{n_{1} + n_{2} - 2}
+\end{aligned}
+$$
+
+and standard error is:
+
+$$
+\begin{aligned}
+SE_{\mu_{1} - \mu_{2}} &= \sqrt{s_{p}^2(\frac{1}{n_{1}} + \frac{1}{n_{2}}})
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, message = F, warning = F}
+# Young average
+Y_bar <- mean(data$Young)
+# Middle average
+Z_bar <- mean(data$Middle)
+
+# Young variance
+s1.2 <- var(data$Young)
+# Middle variance
+s2.2 <- var(data$Middle)
+
+# defining n_i
+n1 <- length(data$Young)
+n2 <- length(data$Middle)
+
+# pooled variance
+num <- (n1 - 1)*s1.2 + (n2 - 1)*s2.2
+denom <- (n1 + n2 - 2)
+sp.2 <- num / denom
+
+pooled.variance <- function(n1, n2, s1.2, s2.2){
+  sp.2 <- ((n1-1)*s1.2 + (n2-1)*s2.2)/(n1+n2-2)
+  return(sp.2)
+}
+
+# not sure how to save as a global variable to pass to function 2
+sp.2 <- pooled.variance(n1,n2, s1.2, s2.2)
+
+standard.error <- function(sp.2, n1, n2){
+  SE.error <- sqrt((sp.2/n1) + (sp.2/n2))
+  return(SE.error)
+}
+
+SE.error <- standard.error(sp.2, n1, n2)
+```
+
+The standard error is `r round(standard.error(sp.2, n1, n2), 3)`
+
+\newpage
+
+## Part B
+
+Construct a $99\%$ interval for $\mu_{1} - \mu_{2}$ ($\alpha = 0.01$). I'm going to call group 1 Y and group 2 Z.
+
+$$
+\begin{aligned}
+(\bar{Y} - \bar{X}) \pm t(1 - \frac{\alpha}{2}; n_{1} + n_{2} - 2)s\{{\bar{Y} - \bar{X}}\}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message =F}
+Y.bar <- mean(data$Young)
+Z.bar <- mean(data$Middle)
+t.crit <- qt(1 - 0.01/2, n1 + n2 - 2)
+
+# Lower
+L <- (Y.bar - Z.bar) - t.crit*SE.error
+
+# Upper
+U <- (Y.bar - Z.bar) + t.crit*SE.error
+```
+
+The $99\%$ confidence interval for $\mu_{1} - \mu_{2}$
+
+$$
+-6.25 \pm 2.819(0.623)
+$$
+
+so, `r round(L, 3)` $\leq \mu_{1} - \mu_{2} \leq$ `r round(U, 3)`.
+
+\newpage
+
+## Part C
+
+Perform the following hypothesis test controlling at $\alpha = 0.03$
+
+$$
+\begin{aligned}
+H_{0}&: \mu_{1} = \mu_{2} \\
+H_{a} &: \mu_{1} \neq \mu_{2}
+\end{aligned}
+$$
+
+Decision rule:
+
+-   if $|t^{*}| \leq t(1 - \frac{\alpha}{2}; n_{1} + n_{2} -2)$ conclude $H_{0}$
+
+-   if $|t^{*}| > t(1 - \frac{\alpha}{2}; n_{1} + n_{2} -2)$ conclude $H_{a}$
+
+where the test statistic is defined as:
+
+$$
+\begin{aligned}
+t^{*}&= {\frac{\bar{Y}-\bar{Z}}{s\{\bar{Y}-\bar{X}\}}}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+test.stat <- (Y.bar - Z.bar) / SE.error
+t.crit <- qt(1 - 0.03/2, n1 + n2 -2)
+
+decision_rule <- function(test.stat, t.crit){
+  if(abs(test.stat) <= t.crit)
+  {
+    print("Conclude the null hypothesis")
+  }
+  else
+  {
+    print("There is sufficient evidence to reject the null hypothesis")
+  }
+}
+
+# obtain p-value 
+# multiply by 2 b/c two-tail test! 
+p.value <- 2*pt(test.stat, n1 + n2 - 2)
+
+# or
+blah1 <- t.test(data$Young, data$Middle, alternative = "two.sided", 
+                paired = FALSE, var.equal = TRUE,
+                conf.level = 0.97)
+# blah1$p.value
+```
+
+The p-value is `r p.value` which is less than $\alpha = 0.03$. Since $p << \alpha = 0.03$, there is sufficient evidence to reject the null hypothesis -- that the two sample means are equal to each other.
+
+\newpage
+
+## Part D
+
+Perform the following one-sided test and obtain the p-value (Use $\alpha = 0.03$ again?)
+
+$$
+\begin{aligned}
+H_{0} &: \mu_{1} = \mu{2} \\
+H_{a} &: \mu_{1} > \mu_{2}
+\end{aligned}
+$$
+
+Decision Rule:
+
+-   if $t^{*} \leq t(1- \alpha; n_{1} + n_{2} -2)$ conclude $H_{0}$ (Since $H_{0}$ is strictly equals, this should just be less than?)
+
+-   if $t^{*} > t(1- \alpha; n_{1}+n_{2}-2)$ conclude $H_{a}$
+
+where the test statistic is defined as:
+
+$$
+\begin{aligned}
+t^{*}&= {\frac{\bar{Y}-\bar{Z}}{s\{\bar{Y}-\bar{X}\}}}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, message = F, warning = F}
+# same test statistic as part A control alpha = 0.03!
+t.crit <- qt(1 - 0.03, n1+n2-2, lower.tail = FALSE)
+
+p.value2 <- pt(test.stat, n1+n2-2, lower.tail = F)
+
+decision <- function(test.stat, t.crit){
+  if(test.stat <= t.crit)
+  {
+    print("We fail to reject the null hypothesis")
+  }
+  else
+  {
+    print("There is sufficient evidence to reject the null hypothesis")
+  }
+}
+blah2 <- t.test(data$Young, data$Middle, alternative = "greater",
+                paired = FALSE, var.equal = TRUE, conf.level = 0.97)
+```
+
+The p-value is `r p.value2`. Since $1 = p > \alpha = 0.03$, we fail to reject the null hypothesis.
+
+\newpage
+
+### Part E
+
+I will interpret both parts C and D here since the directions didn't specify which sections to interpret.
+
+**Part C**
+
+Our null hypothesis is that the two sample means are equal to each other i.e., $H_{0}: \mu_{1} = \mu_{2} \implies \mu_{1} - \mu_{2} =0$ and our alternative hypothesis is that the two sample means differ i.e., $H_{a}: \mu_{1} \neq \mu_{2}$ and we controlled at $\alpha = 0.03$. We found that the $p < \alpha$, so there is evidence to reject the null hypothesis. In terms of our data, there is a difference in the average (in hundreds of dollars) offered for a fixed medium price six-year old car, when the the "owner" was young-age (group 1) and middle-age (group 2).
+
+**Part D**
+
+Our null hypothesis again is that the two sample means are equal to each other. This time our null hypothesis is that group 1's sample mean is larger than group 2's sample mean: $H_{a}: \mu_{1} > \mu_{2}$. In terms of our data, the alternative hypothesis states that the average, in hundreds of dollars, cash offered for the same fixed car used in the experiment is more for the younger owner than the middle-aged owner. In other words, the alternative states that more money was offered to the younger owner than the middle aged owner.
+
+We performed a one-tailed test (upper) and found that the $1 = p > \alpha = 0.03$, so we reject the null hypothesis in favour of the alternative. In terms of our data, there is sufficient evidence to suggest that the average amount, in hundreds of dollars, offered to the same car, when the owner is young, is not greater than the average amount offered for the same car for a middle aged owner.
+
+\newpage
+
+### Part F
+
+Suppose now that the sample variances are no longer equal ($\sigma_{1}^2 \neq \sigma_{2}^2$) and therefore we can no longer use the pooled variance in our test statistic. We must now redefine our test statistic:
+
+$$
+\begin{aligned}
+t_{\sigma_{1}^2 \neq \sigma_{2}^2}^{*} &= \frac{\bar{Y}-\bar{Z} - 0}{\sqrt{{\frac{s_{1}^2}{n_{1}}+\frac{s_{2}^2}{n_{2}}}}}
+\end{aligned}
+$$
+
+where $s_{1}^2$ and $s_{2}^2$ are the respective sample variances, which I will just use R's base function *var* to calculate. Furthermore, $t_{\sigma_{1}^2 \neq \sigma_{2}^2}^{*} \sim t(df = K)$ where K is no longer $K = n_{1}+n_{2}-2$. We now have to use an approximation called the Welch-Satterthwaite approximation when the homogeneity of variances is not applicable. This approximation is defined by:
+
+$$
+\begin{aligned}
+K^{*} &= \frac{(\frac{s_{1}^2}{n_{1}}+\frac{s_{2}^2}{n_{2}})^2}{\frac{1}{n_{1}-1}(\frac{s_{1}^2}{n_{1}})^2+\frac{1}{n_{2}-1}(\frac{s_{2}^2}{n_{2}})^2}
+\end{aligned}
+$$
+
+such that $t_{\sigma_{1}^2 \neq \sigma_{2}^2}^{*} \sim t(df = K^{*})$
+
+We now perform the following hypothesis test with these conditions controlling at $\alpha = 0.03$:
+
+$$
+\begin{aligned}
+H_{0} &: \mu_{1} = \mu_{2} \\
+H_{a} &: \mu_{1} \neq \mu_{2}
+\end{aligned}
+$$
+
+-   if $|t_{\sigma_{1}^2\neq\sigma_{2}^2}^{*}| \leq t(1 - \frac{\alpha}{2}; K^{*})$ conclude $H_{0}$
+
+-   if $|t_{\sigma_{1}^2\neq\sigma_{2}^2}^{*}| > t(1 - \frac{\alpha}{2}; K^{*})$ conclude $H_{a}$
+
+```{r, eval  = T, echo = F, warning = F, message = F}
+Y.bar <- mean(data$Young)
+Z.bar <- mean(data$Middle)
+s1.2 <- var(data$Young)
+s2.2 <- var(data$Middle)
+n1 <- length(data$Young)
+n2 <- length(data$Middle)
+
+num <- ((s1.2/n1) + (s2.2/n2))^2
+denom <- (1/(n1-1))*(s1.2/n1)^2 + (1/(n2-1))*(s2.2/n2)^2
+satter.df <- num/denom
+
+t.stat <- (Y.bar - Z.bar) / sqrt((s1.2/n1)+(s2.2/n2))
+t.critical <- qt(1 - 0.03/2, satter.df)
+
+p.value <- 2*pt(t.stat, satter.df)
+
+decision_rule <- function(t.stat, t.critical){
+  if(abs(t.stat) <= t.crit)
+  {
+    print("Conclude the null hypothesis")
+  }
+  else
+  {
+    print("There is sufficient evidence to reject the null hypothesis")
+  }
+}
+
+# decision_rule(t.stat, t.critical)
+
+blah4 <- t.test(data$Young, data$Middle, alternative = "two.sided",
+                paired = FALSE, var.equal = FALSE, conf.level = 0.97)
+```
+
+Without the homogeneity assumption, we performed the hypothesis testing with a test statistic that used the two samples' respective sample variances. The p-value obtained from this test is `r p.value` and therefore $p < \alpha = 0.03$. There is sufficient evidence reject the null hypothesis in favour of the alternative i.e., there is evidence to suggest that there is indeed a difference between the two sample means.
+
+\newpage
+
+# Question 2
+
+Let the respective sample sizes be $n_{1} = n_{2} = 40$ and assume equal variances $\sigma_{1}^2 = \sigma_{2}^2 = 33.6 \implies = \sigma_{1} = \sigma_{2} = \sqrt{33.6}$. Furthermore, assume that the true difference between means, call it $\delta$, is $\delta = \mu_{1} - \mu_{2} = 1.5$ and assume that the samples come from a normal distribution. What is the power of the following controlling at $\alpha = 0.05$?
+
+$$
+\begin{aligned}
+H_{0} &: \mu_{1} = \mu_{2} \\
+H_{a} &: \mu_{1} \neq \mu_{2}
+\end{aligned}
+$$
+
+We assumed a normal.
+
+Let
+
+$$
+\begin{aligned}
+Power &= P(|Z| > Z_{\frac{\alpha}{2}} | H_{a}: \delta=1.5) \\ 
+&= P(Z > Z_{\frac{\alpha}{2}}|\delta = 1.5) + P(Z < -Z_{\frac{\alpha}{2}}|\delta = 1.5)
+\end{aligned}
+$$
+
+Here Z is not standard normal because of $\delta = 1.5$, so we need to shift the distribution.
+
+$$
+\begin{aligned}
+P &= \Bigg(\frac{\mu_{1}-\mu_{2} - \delta}{\sqrt{\frac{\sigma_{1}^2}{n_{1}}+\frac{\sigma_{2}^2}{n_{2}}}} > Z_{\frac{\alpha}{2}} - \frac{\delta}{{\sqrt{\frac{\sigma_{1}^2}{n_{1}}+\frac{\sigma_{2}^2}{n_{2}}}}}|\delta = 1.5\Bigg) \\
+&= 1 - \phi\Bigg(Z_{\frac{\alpha}{2}} - \frac{\delta}{{\sqrt{\frac{\sigma_{1}^2}{n_{1}}+\frac{\sigma_{2}^2}{n_{2}}}}}\Bigg)\\
+&= 1 - \phi\Bigg(1.96 - \frac{1.5}{\sqrt{\frac{33.6}{40}+\frac{33.6}{40}}}\Bigg) \\
+&= 1 - \phi(0.8027) \ \text{, use Z-table or pnorm()} \\
+&\approx0.211
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+del <- 1.5
+s1.2 <- 33.6
+s2.2 <- 33.6
+n1 <- 40
+n2 <- 40
+z_alpha2 <- 1.96
+power <-  1 - pnorm(1.96 - (del/(sqrt((s1.2/n1) + (s2.2/n2)))))
+                    
+results <- power.t.test(n = 40, delta = 1.5, sd = sqrt(33.6), sig.level = 0.05,
+                     type = "two.sample", alternative = "two.sided")
+# results$power
+# close to manual power calculation
+```
+
+The power of the test calculated by hand is `r round(power, 3)` and R's calculated power is `r round(results$power, 3)`.
+
+\newpage
+
+# Question 3
+
+Use the data from CH15TA01.
+
+Assume normal distributions and let $\alpha = 0.05$. Find the p-value. The samples are also PAIRED.
+
+$$
+\begin{aligned}
+H_{0} &: \mu_{1} = \mu_{2} \\
+H_{a} &: \mu_{1} \neq \mu_{2}
+\end{aligned}
+$$
+
+Let the differences between the control $Y_{i}$ and experimental treatment $Z_{i}$ be denoted by $W_{i}$ where
+
+$$
+\begin{aligned}
+W_{i} &= Y_{i} - Z_{i} \ i =1, ...,n \\
+\bar{W} &= \frac{\sum_{i=1}^n W_{i}}{n} \\
+s^2\{\bar{W}\} &= \frac{\sum_{i=1}^n (W_{i}-\bar{W})^2}{n-1} \div n \ \text{and}\\
+T=&\frac{\bar{W} - (\mu_{1} -\mu_{2})}{s\{\bar{W}\}} \sim t(n-1)
+\end{aligned}
+$$
+
+-   if $|T| \leq t(1-\frac{\alpha}{2};n-1)$ conclude $H_{0}$
+
+-   if $|T| > t(1-\frac{\alpha}{2};n-1)$ conclude $H_{a}$
+
+```{r, eval = T, echo = F, message = F, warning = F}
+data <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2015%20Data%20Sets/CH15TA01.txt")
+
+data <- data %>% rename(X = 1, Control_Treatment = 2,
+                        Experimental_Treatment = 3, Within_Subject_Diff = 4) %>%
+  select(everything(), -X)
+
+n <- length(data$Control_Treatment)
+Y <- data$Control_Treatment
+Z <- data$Experimental_Treatment
+W <- Z - Y
+W.bar <- mean(W)
+std.W.bar <- sd(W)
+SE.W.bar <- std.W.bar / sqrt(length(data$Control_Treatment))
+T <- W.bar / SE.W.bar
+
+t.crit <- qt(1- 0.05/2, n, lower.tail = FALSE)
+p.value <- 2*pt(T, n)
+
+corgi <- t.test(data$Control_Treatment, data$Experimental_Treatment,
+                alternative = "two.sided", paired = TRUE, var.equal = FALSE,
+                conf.level = 0.95)
+```
+
+The p-value is `r corgi$p.value`, so there is sufficient evidence to reject the null hypothesis. In terms of the experiment, the null hypothesis states that the mean diametre in the control treatment and the allergen injection are the same i.e., there is no difference in diametre (the injection did not reduce sensitivity). However, since $p<\alpha$, there is sufficient evidence to have us believe that there does exist a difference between the control and allergen injection. That being said, since we ran a two-tailed test, we cannot say whether or not the experiment reduced sensitivity or not.
+
+\newpage
+
+# Question 4 (Extra Credit)
+
+Got lazy, didn't want to type everything, but here's the test statistic:
+
+$$
+\begin{aligned}
+Z = \frac{(\hat{p_{A}}-\hat{p}_{b})-0}{\sqrt{\hat{p}(1-\hat{p}(\frac{1}{n_{A}}+\frac{1}{n_{B}})}}
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+H_{0}&: p_{A} = p_{B} \\
+H_{a} &: p_{A} \neq p_{B}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+A <- 100
+p_A <- 50 / 100
+
+B <- 140
+p_B <- 75 / 140
+
+p_overall <- (p_A + p_B) / (A + B)
+SE.error <- sqrt(p_overall*(1-p_overall)*(1/A + 1/B))
+Z.test.stat <- abs(p_A - p_B) / sqrt(p_overall*(1-p_overall)*(1/A + 1/B))
+
+Z.crit <- qnorm(1 - 0.07/2)
+
+p.value <- 2*(1-pnorm(Z.crit))
+duck <- prop.test(p_A + p_B, n = A+B, alternative = "two.sided", conf.level = 0.93)
+
+cow <- prop.test(x = c(50, 75),  n = c(100, 140), alternative = "two.sided", conf.level = 0.93)
+```
+
+The standard error is `r round(SE.error, 3)`. **(PART A)**
+
+**(PART B)**
+
+The p-value is `r p.value` when controlling at $\alpha = 0.07$. There is not evidence to reject the null hypothesis $p = \alpha = 0.07$.
+
+\newpage
+
+# Appendix (Code)
+
+## Question 1
+
+### Part A
+
+```{r, eval = F, echo = T, message = F, warning = F}
+{r, eval = T, echo = F, message = F, warning = F}
+# Young average
+Y_bar <- mean(data$Young)
+# Middle average
+Z_bar <- mean(data$Middle)
+
+# Young variance
+s1.2 <- var(data$Young)
+# Middle variance
+s2.2 <- var(data$Middle)
+
+# defining n_i
+n1 <- length(data$Young)
+n2 <- length(data$Middle)
+
+# pooled variance
+num <- (n1 - 1)*s1.2 + (n2 - 1)*s2.2
+denom <- (n1 + n2 - 2)
+sp.2 <- num / denom
+
+pooled.variance <- function(n1, n2, s1.2, s2.2){
+  sp.2 <- ((n1-1)*s1.2 + (n2-1)*s2.2)/(n1+n2-2)
+  return(sp.2)
+}
+
+# not sure how to save as a global variable to pass to function 2
+sp.2 <- pooled.variance(n1,n2, s1.2, s2.2)
+
+standard.error <- function(sp.2, n1, n2){
+  SE.error <- sqrt((sp.2/n1) + (sp.2/n2))
+  return(SE.error)
+}
+
+SE.error <- standard.error(sp.2, n1, n2)
+```
+
+### Part B
+
+```{r, eval = F, echo = T, warning = F, message =F}
+Y.bar <- mean(data$Young)
+Z.bar <- mean(data$Middle)
+t.crit <- qt(1 - 0.01/2, n1 + n2 - 2)
+
+# Lower
+L <- (Y.bar - Z.bar) - t.crit*SE.error
+
+# Upper
+U <- (Y.bar - Z.bar) + t.crit*SE.error
+```
+
+### Part C
+
+```{r, eval = F, echo = T, warning = F, message = F}
+test.stat <- (Y.bar - Z.bar) / SE.error
+t.crit <- qt(1 - 0.03/2, n1 + n2 -2)
+
+decision_rule <- function(test.stat, t.crit){
+  if(abs(test.stat) <= t.crit)
+  {
+    print("Conclude the null hypothesis")
+  }
+  else
+  {
+    print("There is sufficient evidence to reject the null hypothesis")
+  }
+}
+
+# obtain p-value 
+# multiply by 2 b/c two-tail test! 
+p.value <- 2*pt(test.stat, n1 + n2 - 2)
+
+# or
+blah1 <- t.test(data$Young, data$Middle, alternative = "two.sided", 
+                paired = FALSE, var.equal = TRUE,
+                conf.level = 0.985)
+# blah1$p.value
+```
+
+### Part D
+
+```{r, eval = F, echo = T, message = F, warning = F}
+# same test statistic as part A control alpha = 0.03!
+t.crit <- qt(1 - 0.03, n1+n2-2, lower.tail = FALSE)
+
+p.value2 <- pt(test.stat, n1+n2-2, lower.tail = F)
+
+decision <- function(test.stat, t.crit){
+  if(test.stat <= t.crit)
+  {
+    print("We fail to reject the null hypothesis")
+  }
+  else
+  {
+    print("There is sufficient evidence to reject the null hypothesis")
+  }
+}
+blah2 <- t.test(data$Young, data$Middle, alternative = "greater",
+                paired = FALSE, var.equal = TRUE, conf.level = 0.97)
+```
+
+### Part F
+
+```{r, eval  = F, echo = T, warning = F, message = F}
+Y.bar <- mean(data$Young)
+Z.bar <- mean(data$Middle)
+s1.2 <- var(data$Young)
+s2.2 <- var(data$Middle)
+n1 <- length(data$Young)
+n2 <- length(data$Middle)
+
+num <- ((s1.2/n1) + (s2.2/n2))^2
+denom <- (1/(n1-1))*(s1.2/n1)^2 + (1/(n2-1))*(s2.2/n2)^2
+satter.df <- num/denom
+
+t.stat <- (Y.bar - Z.bar) / sqrt((s1.2/n1)+(s2.2/n2))
+t.critical <- qt(1 - 0.03/2, satter.df)
+
+p.value <- 2*pt(t.stat, satter.df)
+
+decision_rule <- function(t.stat, t.critical){
+  if(abs(t.stat) <= t.crit)
+  {
+    print("Conclude the null hypothesis")
+  }
+  else
+  {
+    print("There is sufficient evidence to reject the null hypothesis")
+  }
+}
+
+# decision_rule(t.stat, t.critical)
+
+blah4 <- t.test(data$Young, data$Middle, alternative = "two.sided",
+                paired = FALSE, var.equal = FALSE, conf.level = 0.97)
+```
+
+\newpage
+
+# Question 2
+
+```{r, eval = F, echo = T, warning = F, message = F}
+del <- 1.5
+s1.2 <- 33.6
+s2.2 <- 33.6
+n1 <- 40
+n2 <- 40
+z_alpha2 <- 1.96
+power <-  1 - pnorm(1.96 - (del/(sqrt((s1.2/n1) + (s2.2/n2)))))
+                    
+results <- power.t.test(n = 40, delta = 1.5, sd = sqrt(33.6), sig.level = 0.05,
+                     type = "two.sample", alternative = "two.sided")
+# results$power
+# close to manual power calculation
+```
+
+\newpage
+
+# Question 3
+
+```{r, eval = F, echo = T, warning = F, message = F}
+data <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2015%20Data%20Sets/CH15TA01.txt")
+
+data <- data %>% rename(X = 1, Control_Treatment = 2,
+                        Experimental_Treatment = 3, Within_Subject_Diff = 4) %>%
+  select(everything(), -X)
+
+n <- length(data$Control_Treatment)
+Y <- data$Control_Treatment
+Z <- data$Experimental_Treatment
+W <- Z - Y
+W.bar <- mean(W)
+std.W.bar <- sd(W)
+SE.W.bar <- std.W.bar / sqrt(length(data$Control_Treatment))
+T <- W.bar / SE.W.bar
+
+t.crit <- qt(1- 0.05/2, n, lower.tail = FALSE)
+p.value <- 2*pt(T, n)
+
+corgi <- t.test(data$Control_Treatment, data$Experimental_Treatment,
+                alternative = "two.sided", paired = TRUE, var.equal = FALSE,
+                conf.level = 0.95)
+```
+
+\newpage
+
+# Question 4 (Extra credit)
+
+```{r, eval = F, echo = T, warning = F, message = F}
+A <- 100
+p_A <- 50 / 100
+
+B <- 140
+p_B <- 75 / 140
+
+p_overall <- (p_A + p_B) / (A + B)
+SE.error <- sqrt(p_overall*(1-p_overall)*(1/A + 1/B))
+Z.test.stat <- abs(p_A - p_B) / sqrt(p_overall*(1-p_overall)*(1/A + 1/B))
+
+Z.crit <- qnorm(1 - 0.07/2)
+
+p.value <- 2*(1-pnorm(Z.crit))
+duck <- prop.test(p_A + p_B, n = A+B, alternative = "two.sided", conf.level = 0.93)
+
+cow <- prop.test(x = c(50, 75),  n = c(100, 140), alternative = "two.sided", conf.level = 0.93)
+```
