@@ -1,0 +1,254 @@
+---
+title: |
+  \vspace{5cm} <center> STP 531 </center>
+  <center> Applied Analysis of Variance </center>
+  <center> Homework 2 </center>
+  
+author: "Nathan A. Nguyen"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  pdf_document:
+    keep_tex: true
+---
+
+```{r setup, include=FALSE, eval = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+library(tidyverse)
+library(knitr)
+library(formatR)
+library(kableExtra)
+# library(psych)
+# library(gridExtra)
+# library(jtools)
+# library(ggpubr)
+library(car)
+# library(GGally)
+# library(ggcorrplot)
+library(matlib)
+library(mvoutlier)
+library(matlab)
+library(ALSM)
+setwd('C:\\Users\\natha\\Classes\\Current Classes\\STP 531 - Applied Analysis of Variance\\Homework\\Homework 2')
+```
+
+\newpage
+
+# Question 16.11
+
+$$
+\begin{aligned}Y_{ij} &= \mu_{ij} + \epsilon_{ij} \\n_T &= 120 \\n_{i} &= 20 \\i &= 1, 2, …,6 \text{ }\text{and} \text{ } j = 1,2,…,20 \\\end{aligned}
+$$
+
+## Part A
+
+```{r, eval = T, echo = F, warning = F, message = F}
+getdata <- function(...){
+  e = new.env()
+  name = data(..., envir = e)[1]
+  e[[name]]
+}
+
+data <- getdata("FillingMachines")
+
+data2 <- data
+# drop redundant row column
+data2 <- subset(data2, select = -row)
+#force group to factor variables (indicators)
+data2$group <- as.factor(data2$group)
+
+p1 <- data2 %>% ggplot(aes(x = group, y = y)) +
+  geom_boxplot(aes(fill = factor(group))) +
+  theme(legend.position = "none") +
+  labs(title = "Factor Level Means",
+       x = "Machine Number",
+       y = "std. 32 oz.")
+p1
+```
+
+## Part B
+
+```{r, eval = T, echo = F, message = F, warning = F,results = 'asis'}
+factor_level_means <- data2 %>%
+  group_by(group) %>%
+  summarise(mean = mean(y))
+
+kable(factor_level_means[], caption = "Fitted Values",
+      format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+## Part C
+
+```{r, eval = T, echo = F, message = F, warning = F}
+deviation <- data2 %>%
+  group_by(group) %>%
+  summarise(resid = y-mean(y))
+
+corgi = as.data.frame(cbind(Group_1 = deviation$resid[deviation$group == 1],
+                          Group_2 = deviation$resid[deviation$group == 2],
+                      Group_3 = deviation$resid[deviation$group == 3],
+                      Group_4 = deviation$resid[deviation$group == 4],
+                      Group_5 = deviation$resid[deviation$group == 5],
+                      Group_6 = deviation$resid[deviation$group == 6]))
+
+zero = sum(corgi$Group_1) + sum(corgi$Group_2) + sum(corgi$Group_3) + sum(corgi$Group_4) + sum(corgi$Group_5) + sum(corgi$Group_6)
+machine1_dev <- as.data.frame(subset(deviation, group == 1))
+kable(corgi[], caption = "Deviations", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+The residuals sum to zero `r zero`, which is essentially 0.
+
+## Part D
+
+|      Source      |  SS  |  df |  MS  |
+|:----------------:|:----:|:---:|:----:|
+| Between Machines | 2.29 |  5  | 0.46 |
+|       Error      | 3.53 | 114 | 0.03 |
+|       Total      | 5.82 | 119 |      |
+
+: ANOVA table
+
+```{r, eval = T, echo = F, warning = F, message = F}
+n_T <- 120
+n_i <- 20
+Y.. <- sum(data2$y)
+YBar.. <- Y.. / n_T
+SSTR <- n_i*((0.0735-YBar..)^2+(0.1905-YBar..)^2+(0.46-YBar..)^2+(0.3655-YBar..)^2+(0.125-YBar..)^2+(0.1515-YBar..)^2)
+SSE <- sum((deviation$resid)^2)
+MSTR <- SSTR/5
+MSE <- SSE/(n_T-6)
+```
+
+\newpage
+
+## Part E
+
+Let $\alpha = 0.05$
+
+$$
+\begin{aligned}
+H_{0} &: \mu_{1} = \mu_{2} = \mu_{3} = \mu_{4} = \mu_{5} = \mu_{6} \\
+H_{a} &: \text{not all } \mu_{i} \text{ are equal} \\
+F^{*} &= \frac{MSTR}{MSE}
+\end{aligned}
+$$
+
+-   if $F^{*} \leq F(1-\alpha;r-1;n_{T}-r)$, conclude $H_{0}$.
+
+-   if $F^{*} > F(1-\alpha;r-1;n_{T}-r)$, conclude $H_{a}$.
+
+$$
+\begin{aligned}
+F^{*} &= \frac{MSTR}{MSE} = \frac{0.46}{0.03} \approx 15.33 \\
+& F(1-\alpha; r-1;n_{T}-r) = F(0.95,5,114) \approx 2.29
+\end{aligned}
+$$
+
+Since $F^{*} > F_{critical}$ there is sufficient evidence to suggest that the factor level means are all not equal. In other words, there exists a difference between the treatments.
+
+```{r, eval = T, echo = F, warning = F, message = F}
+F.star <- MSTR/MSE
+F.value <- qf(0.95, df1 = 5, df2 = 114)
+```
+
+## Part F
+
+```{r, eval = T, echo = F, message = F, warning = F}
+p.value <- pf(F.star, df1 = 5, df2 = 114, lower.tail = FALSE)
+```
+
+The p-value is `r p.value`, which is is consistent with part E -- that there is sufficient evidence to reject the null hypothesis and proceed with proceed with the notion that not all of the factor level means are equal.
+
+## Part G
+
+The variation variation between groups is indeed large compared the variation within groups. Based on the plots alone, we can see that there is nothing really standing out with regards to the width of each of the groups' box. In other words, the interval of each box are approximately the same.
+
+As for the variation between groups. That is obviously seen. if we isolate group 2 and 3, their 1st-3rd quartiles don't even fall within the other 4 groups' distributions. Also, $E\{MSE\} < E\{MSTR\}$ where $E\{MSTR\}$ is larger than an order of magnitude -- more evidence to suggest that the variation between groups is more important than variation within groups.
+
+\newpage
+
+# Appendix
+
+## Question 16.11
+
+### Part A
+
+```{r, eval = F, echo = T}
+getdata <- function(...){
+  e = new.env()
+  name = data(..., envir = e)[1]
+  e[[name]]
+}
+
+data <- getdata("FillingMachines")
+
+data2 <- data
+# drop redundant row column
+data2 <- subset(data2, select = -row)
+#force group to factor variables (indicators)
+data2$group <- as.factor(data2$group)
+
+p1 <- data2 %>% ggplot(aes(x = group, y = y)) +
+  geom_boxplot(aes(fill = factor(group))) +
+  theme(legend.position = "none") +
+  labs(title = "Factor Level Means",
+       x = "Machine Number",
+       y = "std. 32 oz.")
+p1
+```
+
+### Part B
+
+```{r, eval = F, echo = T}
+factor_level_means <- data2 %>%
+  group_by(group) %>%
+  summarise(mean = mean(y))
+
+kable(factor_level_means[], caption = "Fitted Values",
+      format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+### Part C
+
+```{r, eval = F, echo = T}
+deviation <- data2 %>%
+  group_by(group) %>%
+  summarise(resid = y-mean(y))
+
+corgi = as.data.frame(cbind(Group_1 = deviation$resid[deviation$group == 1],
+                          Group_2 = deviation$resid[deviation$group == 2],
+                      Group_3 = deviation$resid[deviation$group == 3],
+                      Group_4 = deviation$resid[deviation$group == 4],
+                      Group_5 = deviation$resid[deviation$group == 5],
+                      Group_6 = deviation$resid[deviation$group == 6]))
+zero = sum(corgi$Group_1) + sum(corgi$Group_2) + sum(corgi$Group_3)
++ sum(corgi$Group_4) + sum(corgi$Group_5) + sum(corgi$Group_6)
+machine1_dev <- as.data.frame(subset(deviation, group == 1))
+kable(corgi[], caption = "Deviations", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+### Part D
+
+```{r, eval = F, echo = T}
+n_T <- 120
+n_i <- 20
+Y.. <- sum(data2$y)
+YBar.. <- Y.. / n_T
+SSTR <- n_i*((0.0735-YBar..)^2+(0.1905-YBar..)^2+(0.46-YBar..)^2+
+               (0.3655-YBar..)^2+(0.125-YBar..)^2+(0.1515-YBar..)^2)
+SSE <- sum((deviation$resid)^2)
+MSTR <- SSTR/5
+MSE <- SSE/(n_T-6)
+```
+
+### Part F
+
+```{r, eval = F, echo = T}
+p.value <- pf(F.star, df1 = 5, df2 = 114, lower.tail = FALSE)
+```
