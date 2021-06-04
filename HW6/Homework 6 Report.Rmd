@@ -1,0 +1,847 @@
+---
+title: |
+  \vspace{5cm} <center> STP 531 </center>
+  <center> Applied Analysis of Variance </center>
+  <center> Homework 6 </center>
+  
+author: "Nathan A. Nguyen"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  pdf_document:
+    keep_tex: true
+header-includes:
+  \usepackage{booktabs}
+  \usepackage{longtable}
+  \usepackage{array}
+  \usepackage{multirow}
+  \usepackage{wrapfig}
+  \usepackage{float}
+  \usepackage{colortbl}
+  \usepackage{pdflscape}
+  \usepackage{tabu}
+  \usepackage{threeparttable}
+  \usepackage{threeparttablex}
+  \usepackage[normalem]{ulem}
+  \usepackage{makecell}
+  \usepackage{xcolor}
+---
+
+```{r setup, include=FALSE, eval = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+library(tidyverse)
+library(knitr)
+library(formatR)
+library(kableExtra)
+# library(psych)
+# library(gridExtra)
+# library(jtools)
+# library(ggpubr)
+library(car)
+# library(GGally)
+# library(ggcorrplot)
+# library(matlib)
+# library(mvoutlier)
+# library(matlab)
+library(ALSM)
+library(ggpubr)
+library(stargazer)
+library(ggfortify)
+library(MASS)
+library(ggsci)
+library(gplots)
+library(gridExtra)
+setwd('C:\\Users\\natha\\Classes\\Current Classes\\STP 531 - Applied Analysis of Variance\\Homework\\Homework 6')
+```
+
+\newpage
+
+# Question 22.2
+
+The analyst is right to be concerned about the nature of the relationship between the concomitant variable and the response outcome of interest. It is imperative that the analyst investigate these relationships before blindly using the ANCOVA framework, e.g., making sure that there exists a strong correlation between the concomitant and the response variable, and making sure that there doesn't exist a correlation between the concomitant and the treatment variable(s). If this is not looked at, you will have biased and misleading results. Although ANCOVA is used to make increase the precision for analysis, it will not be of any use of the concomitant is affected by the treatment variable. Furthermore, there are a lot of assumptions that the analyst would need to make about their sample if no demographic information is given. The group of people who answered the survey may be from very different groups of people, so it may be the case that the concomitant varies grossly with the groups.
+
+\newpage
+
+# Question 22.10
+
+## Part A
+
+```{r, eval = T, echo = F, warning = F, message = F,fig.width=8, fig.height=6}
+# getdata <- function(...){
+#   e = new.env()
+#   name = data(..., envir = e)[1]
+#   e[[name]]
+# }
+# 
+# data <- getdata("QuestionnaireColor")
+
+data <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2022%20Data%20Sets/CH22PR09.txt", header = FALSE,
+                   col.names = c("response", "color", "index", "spaces"))
+
+data$color <- as.factor(data$color)
+
+p1 <- data %>%
+  ggplot(aes(x = spaces, y = response, color = color)) +
+  geom_point(aes(shape = color)) +# geom_smooth(method = "lm", se = FALSE, size = 0.5) +
+  labs(x = "Number of Parking Lot Spaces",
+       y = "Mean Questionnaire Response Rate") +
+  scale_color_manual(values = c("blue", "green", "orange"))
+p1
+```
+
+It does appear that there are color effects present. It looks like an orange coloured flier generally elicits lower response rates compared to blue and green coloured fliers. I wouldn't be confident enough to say whether or not a green flier performs better than a blue flier though. I'd rather rely on a formal statistical test for this.
+
+\newpage
+
+## Part C
+
+I'm going to use R's default factor variable coding instead of using the book's regression indicator variable approach.
+
+$$
+\begin{aligned}
+Y_{ij} &= \mu_{.} + \tau_{i} + \gamma(X_{ij} - \bar{X}_{..}) + \epsilon_{ij} \ (22.3)  \ (\text{full model}) \\ 
+Y_{ij} &= \mu{.} + \tau_{1}I_{ij1} + \tau_{2}I_{ij2} + \gamma x_{ij} + \epsilon_{ij} \ \text{where} \ x_{ij} = X_{ij} - \bar{X}_{..}, \bar{X}_{..} = 280 \\
+Y_{ij} &= \mu_{.} + \gamma x_{ij} + \epsilon_{ij} \ (\text{reduced model})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+H_{0} &: \tau_{1} = \tau_{2} = 0 \\
+H_{a} &: \ \text{not both} \ \tau_{1} \ \text{and} \ \tau_{2} = 0 \\
+F^{*} &= \frac{SSE(R)-SSE(F)}{(n_{T}-2)-[n_{T}-(r+1)]} \div \frac{SSE(F)}{n_{T}-(r+1)} \\
+F^{*} &= \frac{24.708-1.316}{(15-2)-[15-(3+1)]} \div \frac{1.316}{15-(3+1)} = \frac{23.392}{2} * \frac{11}{1.316} \approx 97.76 \\ 
+\alpha &= 0.10, F_{critical} = F(0.90;2,11) \approx 2.86 \\
+F^{*} &\approx 97.76 > 2.86  \approx F_{critical}, \ \text{reject} \ H_{0} \\
+p &= 0^{+}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+Xbar.. <- mean(data$spaces)
+# Full model mean centerd
+mod.F <- lm(response ~ color + scale(spaces, center = T, scale = F), data = data)
+# Reduced model mean centered
+mod.R <- lm(response ~ scale(spaces, center = T, scale = F), data = data)
+SSE.F <- 1.316
+SSE.R <- 24.708
+n_T = 15; r = 3
+df.denom <- (n_T -2) - (n_T - (3+1))
+df.num <- n_T - (r + 1)
+F.star <-  (SSE.R - SSE.F) / df.denom * df.num/SSE.F
+F.crit <- qf(0.90,df.denom, df.num)
+p <- pf(F.star, 2, 11, lower.tail = FALSE)
+```
+
+Since $F^{*} > F_{critcal}$ there is sufficient evidence for us to reject the null hypothesis. In other words, there is evidence to believe that there are treatment effects present. The p-value for this test is `r p`.
+
+## Part D
+
+```{r, eval = T, echo = F, warning = F, message = F}
+temp1 <- anova(mod.F)
+kable(temp1[], caption = "ANOVA Full Model", format = "markdown") %>%
+  kable_styling(position = "center")
+
+alt.mod <- lm(response ~ color, data = data)
+temp2 <- anova(alt.mod)
+kable(temp2[], caption = "No Concomitant ANOVA", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+As we can see from the two ANOVA tables, the mean square errors for the model including the concomitant has a substantially smaller value than the model that only includes the color factor variable. I would say that using the parking lot spaces as a concomitant variable and the ANCOVA framework is justified in this case. We see a substantial reduction in error. Furthermore, there is a strong linear relationship between response rate and the parking lot spaces as well. In addition to this, the treatment regression lines all look parallel. No serious departures from this assumption is suggested based off of the plot though to be rigorous, we should perform a hypothesis test. In other words, we should take into account the lot spaces in this analysis.
+
+## Part E
+
+From page 931:
+
+$$
+\begin{aligned}
+&\mu_{.} + \tau_{1} \rightarrow \hat{\mu}_{.} + \hat{\tau}_{1} \ \text{with variance} \\ 
+&\sigma^{2}\{\hat{\mu}_{.}\} + \sigma^{2}\{\hat{\tau}_{1}\} + 2COV\{\hat{\mu}_{.},\hat{\tau}_{1}\} \\
+&= 0.024 \\
+s\{\hat{Y}\} &\approx 0.15\\
+29.14 &=\mu_{.} + \tau_{1}  \pm 1.80(0.15)\\
+t_{critical} &= t(0.95;11) \approx 1.80
+\end{aligned}
+$$
+
+In our case since colour 1 (blue is the reference class, it is the intercept value $29.14$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+# regression coefficient variance-covariance matrix 
+# mod.F <- lm(response ~ relevel())
+# summary(mod.f)
+blah <- vcov(mod.F)
+
+# Xmat <- model.matrix(mod.F)
+term <- 29.14
+t.value <- qt(0.95,11)
+s <- 0.15
+LL <- term - t.value*s; UL <- term + t.value*s
+moo <- data.frame(
+  Estimate = c(LL, UL)
+)
+
+row.names(moo) <- c("Lower Limit", "Upper Limit")
+kable(moo[], caption = "Confidence Estiamte", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+# Question 22.9
+
+## Part D
+
+We would not be able to conduct a lack of fit test because we don't have any replicates of the response for the respective X's.
+
+```{r, eval = T, echo = F, warning = F, message = F}
+mod.F <- lm(response ~ color + scale(spaces, center = T, scale = F), data = data)
+```
+
+\newpage
+
+# Question 24.7
+
+$$
+\begin{aligned}
+a &= 2, \ \text{factor A: alloy molten state} \\
+b &= 2, \ \text{factor B: temperature hardening process} \\
+c &= 2, \ \text{factor C: time length of hardening process} \\\
+2&\times2\times2 \ \text{design}, \ n_{i} = 3 \\
+Y_{ijkm} &= \mu_{...} + \alpha_{i} + \beta_{j} + \gamma_{k} + (\alpha\beta)_{ij} + (\alpha\gamma)_{ik} + (\beta\gamma)_{jk} + (\alpha\beta\gamma)_{ijk} + \epsilon_{ijkm} \ (24.14)
+\end{aligned}
+$$
+
+## Part A
+
+```{r, eval = T, echo = F, warning = F, message = F, fig.width = 8, fig.height=7}
+data <- read.table("https://people.stat.sc.edu/hitchcock/casehardening.txt",
+                   header = F, col.names = c("Hardness", "FactorA", "FactorB", "FactorC", "Index"))
+
+data$FactorA <- as.factor(data$FactorA)
+data$FactorB <- as.factor(data$FactorB)
+data$FactorC <- as.factor(data$FactorC)
+
+means <- data %>%
+  group_by(FactorA, FactorB, FactorC) %>%
+  summarise(means = mean(Hardness))
+
+FA.1 <- means %>%
+  filter(FactorA == 1)
+
+p2 <- FA.1 %>%
+  ggplot(aes(x = FactorB, y = means, colour = FactorC)) +
+  geom_point() + geom_line(aes(group = FactorC)) +
+  scale_color_lancet() +
+  labs(x = "Factor B",
+       y = "Means",
+       color = "Factor C",
+       title = "Factor A (Level 1)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+FA.2 <- means %>%
+  filter(FactorA == 2)
+
+p3 <- FA.2 %>%
+  ggplot(aes(x = FactorB, y = means, colour = FactorC)) +
+  geom_point() + geom_line(aes(group = FactorC)) +
+  scale_color_lancet() +
+  labs(x = "Factor B",
+       y = "Means",
+       title = "Factor A (Level 2)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+FC.1 <- means %>%
+  filter(FactorC == 1)
+
+p4 <- FC.1 %>%
+  ggplot(aes(x = FactorA, y = means, colour = FactorB)) +
+  geom_point() + geom_line(aes(group = FactorB)) +
+  scale_color_lancet() + 
+  labs(x = "Factor A",
+       y = "means",
+       title = "Factor C (Level 1)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+FC.2 <- means %>%
+  filter(FactorC == 2)
+
+p5 <- FC.2 %>%
+  ggplot(aes(x = FactorA, y = means, colour = FactorB)) +
+  geom_point() + geom_line(aes(group = FactorB)) +
+  scale_color_lancet() +
+  labs(x = "Factor A",
+       y = "Means",
+       title = "Factor C (Level 2)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+g1 <- ggarrange(p2, p3, p4, p5, nrow = 2, ncol = 2)
+g1
+```
+
+There do not appear to be any interaction among the factors but there are main effects present.
+
+\newpage
+
+## Part B
+
+```{r, eval = T, echo = F, warning = F, message = F}
+three_way.mod <- lm(Hardness ~ FactorA*FactorB*FactorC, data = data)
+three_way_table <- anova(three_way.mod)
+kable(three_way_table[], caption = "Three Way ANOVA", format = "markdown") %>%
+  kable_styling(position = "center")
+# alt.3 <- aov(Hardness ~ FactorA*FactorB*FactorC, data = data)
+```
+
+## Part C
+
+$$
+\begin{aligned}
+\alpha &= 0.025 \\
+H_{0} &: \ \text{all} \ (\alpha\beta\gamma)_{ijk} = 0 \\
+H_{a} &: \ \text{not all} \ (\alpha\beta\gamma)_{ijk} =0 \\ 
+F^{*} &= \frac{MSABC}{MSE} = \frac{0.60}{3.36} \approx 0.179 \\
+F_{critical} &= F(0.975;1,16) \approx 6.12 \\
+F^{*} &< F_{critical}, \ \text{conclude} \ H_{0} \\
+p &= 0.68 > 0.025 = \alpha
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+F.star <- 0.60/3.36
+F.crit <- qf(1-0.025,1,16)
+p <- pf(F.star,1,16,lower.tail = FALSE)
+```
+
+Since $F^{*} > F_{critical} \ \text{and} \ p = 0.68 > 0.025 = \alpha$ there is not evidence evidence to reject the null hypothesis. In other words, there is insufficient evidence to conclude that interactions are present.
+
+\newpage
+
+## Part D
+
+$\alpha = 0.025$
+
+$$
+\begin{aligned}
+&\text{Test for AB interactions} \\
+H_{0} &: \ \text{all} \ (\alpha\beta)_{ij} = 0 \\
+H_{a} &: \ \text{not all} \ (\alpha\beta)_{ij} = 0 \\
+F^{*} &= \frac{MSAB}{MSE} = \frac{0.24}{3.36} \approx 0.071 \\
+F_{critical} &= F(0.975;1,16) \approx 6.12 \\
+F^{*} &< F_{critical} \ \text{fail to reject null} \\
+p &\approx 0.79
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+&\text{Test for AC interactions} \\
+H_{0} &: \ \text{all} \ (\alpha\gamma)_{ik} = 0 \\
+H_{a} &: \ \text{not all} \ (\alpha\gamma)_{ik} = 0 \\
+F^{*} &= \frac{MSAC}{MSE} = \frac{0.20}{3.36} \approx 0.06 \\
+F_{critical} &= F(0.975;1,16) \approx 6.12 \\
+F^{*} &< F_{critical} \ \text{fail to reject null} \\
+p &\approx 0.81
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+&\text{Test for BC interactions} \\
+H_{0} &: \ \text{all} \ (\beta\gamma)_{jk} = 0 \\
+H_{a} &: \ \text{not all} \ (\beta\gamma)_{jk} = 0 \\
+F^{*} &= \frac{MSBC}{MSE} = \frac{0.24}{3.36} \approx 0.88 \\
+F_{critical} &= F(0.975;1,16) \approx 6.12 \\
+F^{*} &< F_{critical} \ \text{fail to reject null} \\
+p &\approx 0.36
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+# AB
+MSE <- 3.36
+F.star <- 0.24/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+
+# AC
+F.star <- 0.20/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+
+# BC 
+F.star <- 2.94/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+```
+
+All $p > 0.025$ so we failed to reject all three null hypothesis. There no two-way interactions present.
+
+\newpage
+
+## Part E
+
+$\alpha = 0.025 \ \text{and all have common critical F-value} \approx 6.12$
+
+$$
+\begin{aligned}
+&\text{Test for A main effects} \\
+H_{0} &: \ \text{all} \ (\alpha)_{i} = 0 \\
+H_{a} &: \ \text{not all} \ (\alpha)_{i} = 0 \\
+F^{*} &= \frac{MSA}{MSE} = \frac{788.91}{3.36} \approx 234.79 \\
+F_{critical} &= F(0.975;1,16) \approx 6.12 \\
+F^{*} &> F_{critical}, \ p \approx 5.54\times10^{-11} < \alpha \\
+&\text{conclude the alternative} \ (H_{a})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+&\text{Test for B main effects} \\
+H_{0} &: \ \text{all} \ (\beta)_{j} = 0 \\
+H_{a} &: \ \text{not all} \ (\beta)_{j} = 0 \\
+F^{*} &= \frac{MSB}{MSE} = \frac{1539.20}{3.36} \approx 458.10 \\
+F_{critical} &= F(0.975;1,16) \approx 6.12 \\
+F^{*} &> F_{critical}, \ p \approx 3.36\times10^{-13} < \alpha \\
+&\text{conclude the alternative} \ (H_{a})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+&\text{Test for C main effects} \\
+H_{0} &: \ \text{all} \ (\gamma)_{k} = 0 \\
+H_{a} &: \ \text{not all} \ (\gamma)_{k} = 0 \\
+F^{*} &= \frac{MSC}{MSE} = \frac{2440.17}{3.36} \approx 726.24 \\
+F_{critical} &= F(0.975;1,16) \approx 6.12 \\
+F^{*} &> F_{critical}, \ p \approx 9.24\times10^{-15} < \alpha \\
+&\text{conclude the alternative} \ (H_{a})
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+# all have a common F critical
+blah <- (3-1)*2*2*2
+F.crit <- qf(0.975,1,16)
+
+# A Main
+F.star <- 788.91/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+
+# B main 
+F.star <- 1539.20/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+
+# C Main
+F.star <- 2440.17/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+```
+
+All $p << 0.025 = \alpha$, so there is sufficient evidence to reject all three null hypothesis. In other words, there is reason to believe that are main effects present for all three factor variables.
+
+## Part F
+
+$$
+\begin{aligned}
+\alpha < 1 - (1-0.025)^{7} \approx 0.16
+\end{aligned}
+$$
+
+1.  There are no three-way interactions present ($p > 0.025$)
+
+2.  There are no two-way interactions present ($p > 0.025$)
+
+3.  There are main effects present ($p < 0.025$)
+
+```{r, eval = T, echo = F, warning = F, message = F}
+alpha <- 0.025
+right <- 1 - (1-alpha)^7
+```
+
+## Part G
+
+Yes they do.
+
+```{r, eval = T, echo = F, warning = F, message = F}
+
+```
+
+\newpage
+
+# Question 24.8
+
+$$
+\begin{aligned}
+B &= t\bigg[1-\frac{\alpha}{2g};(n-1)abc\bigg]  = t\bigg[1-\frac{0.05}{6};16\bigg] \approx 2.673
+\end{aligned}
+$$
+
+## Part A
+
+$$
+\begin{aligned}
+\hat{D}_{1} &= \hat{\mu}_{2..} - \hat{\mu}_{1..} = 65.7 - 54.2 = 11.5 \\
+\hat{D}_{2} &= \hat{\mu}_{.2.} - \hat{\mu}_{.1.} = 68 -52 = 16 \\
+\hat{D}_{3} &= \hat{\mu}_{..2} - \hat{\mu}_{..1} = 70 -49.9 = 20.1 \\
+MSE &= 3.36, s\{\hat{D}\} \approx 0.74 \\
+\hat{D}_{i} &\pm Bs\{\hat{D}\}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+B <- qt(1 - (0.05/6), 16)
+MSE <- MSE
+
+# Factor A
+FA.mean <- means %>%
+  group_by(FactorA) %>%
+  summarise(means = mean(means))
+
+mu2.. <- 65.7
+mu1.. <- 54.2
+D1 <- mu2.. - mu1..
+
+# Factor B
+FB.mean <- means %>%
+  group_by(FactorB) %>%
+  summarise(means = mean(means))
+
+mu.2. <- 68
+mu.1. <- 52
+D2 <- mu.2. - mu.1.
+
+# Factor C
+FC.mean <- means %>%
+  group_by(FactorC) %>%
+  summarise(means = mean(means))
+
+mu..2 <- 70
+mu..1 <- 49.9
+D3 <- mu..2 - mu..1
+
+S2 <- MSE/(3*2)
+s <- sqrt(S2)
+
+D1.LL <- D1 - B*s; D1.UL <- D1 + B*s
+D2.LL <- D2 - B*s; D2.UL <- D2 + B*s
+D3.LL <- D3 - B*s; D3.UL <- D3 + B*s
+
+blah <- data.frame(
+  D1 = c(D1.LL, D1.UL),
+  D2 = c(D2.LL, D2.UL),
+  D3 = c(D3.LL, D3.UL)
+)
+
+rownames(blah) <- c("Lower Limit", "Upper Limit")
+kable(blah[], caption = "Bonerroni 95%", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+## Part B
+
+$$
+\begin{aligned}
+\bar{Y}_{222} &= 83.5 \\
+s\{\bar{Y}_{222}\} &\approx 1.06 \\
+\bar{Y}_{222} &\pm t(0.975,16)s\{\hat{Y}\} \\
+83.5 &\pm2.12(1.06)
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+t.value <- qt(0.975,16)
+S2.Y.bar <- MSE/(3)
+s <- sqrt(S2.Y.bar)
+Y.LL <- S2.Y.bar - t.value*s; Y.UL <- S2.Y.bar + t.value*s
+moo <- data.frame(
+  Y.222 = c(Y.LL, Y.UL)
+)
+
+row.names(moo) <- c("Lower Limit", "Upper Limit") 
+kable(moo[], caption = "95% Estimate", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+# Appendix
+
+## Question 22.10
+
+### Part A
+
+```{r, eval = F, echo = T, warning = F, message = F}
+# getdata <- function(...){
+#   e = new.env()
+#   name = data(..., envir = e)[1]
+#   e[[name]]
+# }
+# 
+# data <- getdata("QuestionnaireColor")
+
+data <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2022%20Data%20Sets/CH22PR09.txt", header = FALSE,
+                   col.names = c("response", "color", "index", "spaces"))
+
+data$color <- as.factor(data$color)
+
+p1 <- data %>%
+  ggplot(aes(x = spaces, y = response, color = color)) +
+  geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Number of Parking Lot Spaces",
+       y = "Mean Questionnaire Response Rate") +
+  scale_color_manual(values = c("blue", "green", "orange"))
+p1
+```
+
+### Part B
+
+```{r, eval = F, echo = T, warning = F, message = F}
+
+```
+
+### Part C
+
+```{r, eval = F, echo = T, warning = F, message = F}
+
+```
+
+### Part E
+
+```{r, eval = F, echo = T, warning = F, message = F}
+# regression coefficient variance-covariance matrix 
+# mod.F <- lm(response ~ relevel())
+# summary(mod.f)
+blah <- vcov(mod.F)
+
+# Xmat <- model.matrix(mod.F)
+term <- 29.14
+t.value <- qt(0.95,11)
+s <- 0.15
+LL <- term - t.value*s; UL <- term + t.value*s
+moo <- data.frame(
+  Estimate = c(LL, UL)
+)
+
+row.names(moo) <- c("Lower Limit", "Upper Limit")
+kable(moo[], caption = "Confidence Estiamte", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+## Question 22.9
+
+### Part D
+
+```{r, eval = F, echo = T, warning = F, message = F}
+
+```
+
+\newpage
+
+## Question 24.7
+
+### Part A
+
+```{r, eval = F, echo = T, warning = F, message = F}
+data <- read.table("https://people.stat.sc.edu/hitchcock/casehardening.txt",
+                   header = F, col.names = c("Hardness", "FactorA", "FactorB", "FactorC", "Index"))
+
+data$FactorA <- as.factor(data$FactorA)
+data$FactorB <- as.factor(data$FactorB)
+data$FactorC <- as.factor(data$FactorC)
+
+means <- data %>%
+  group_by(FactorA, FactorB, FactorC) %>%
+  summarise(means = mean(Hardness))
+
+FA.1 <- means %>%
+  filter(FactorA == 1)
+
+p2 <- FA.1 %>%
+  ggplot(aes(x = FactorB, y = means, colour = FactorC)) +
+  geom_point() + geom_line(aes(group = FactorC)) +
+  scale_color_lancet() +
+  labs(x = "Factor B",
+       y = "Means",
+       color = "Factor C",
+       title = "Factor A (Level 1)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+FA.2 <- means %>%
+  filter(FactorA == 2)
+
+p3 <- FA.2 %>%
+  ggplot(aes(x = FactorB, y = means, colour = FactorC)) +
+  geom_point() + geom_line(aes(group = FactorC)) +
+  scale_color_lancet() +
+  labs(x = "Factor B",
+       y = "Means",
+       title = "Factor A (Level 2)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+FC.1 <- means %>%
+  filter(FactorC == 1)
+
+p4 <- FC.1 %>%
+  ggplot(aes(x = FactorA, y = means, colour = FactorB)) +
+  geom_point() + geom_line(aes(group = FactorB)) +
+  scale_color_lancet() + 
+  labs(x = "Factor A",
+       y = "means",
+       title = "Factor C (Level 1)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+FC.2 <- means %>%
+  filter(FactorC == 2)
+
+p5 <- FC.2 %>%
+  ggplot(aes(x = FactorA, y = means, colour = FactorB)) +
+  geom_point() + geom_line(aes(group = FactorB)) +
+  scale_color_lancet() +
+  labs(x = "Factor A",
+       y = "Means",
+       title = "Factor C (Level 2)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+g1 <- ggarrange(p2, p3, p4, p5, nrow = 2, ncol = 2)
+g1
+```
+
+### Part B
+
+```{r, eval = F, echo = T, warning = F, message = F}
+three_way.mod <- lm(Hardness ~ FactorA*FactorB*FactorC, data = data)
+three_way_table <- anova(three_way.mod)
+kable(three_way_table[], caption = "Three Way ANOVA", format = "markdown") %>%
+  kable_styling(position = "center")
+# alt.3 <- aov(Hardness ~ FactorA*FactorB*FactorC, data = data)
+```
+
+### Part C
+
+```{r, eval = F, echo = T, warning = F, message = F}
+F.crit <- qf(1-0.025,1,16)
+p <- pf(F.star,1,16,lower.tail = FALSE)
+```
+
+### Part D
+
+```{r, eval = F, echo = T, warning = F, message = F}
+# AB
+MSE <- 3.36
+F.star <- 0.24/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+
+# AC
+F.star <- 0.20/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+
+# BC 
+F.star <- 2.94/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+```
+
+### Part E
+
+```{r, eval = F, echo = T, warning = F, message = F}
+# all have a common F critical
+blah <- (3-1)*2*2*2
+F.crit <- qf(0.975,1,16)
+
+# A Main
+F.star <- 788.91/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+
+# B main 
+F.star <- 1539.20/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+
+# C Main
+F.star <- 2440.17/MSE
+p <- pf(F.star,1,16,lower.tail=FALSE)
+```
+
+\newpage
+
+### Part F
+
+```{r, eval = F, echo = T, warning = F, message = F}
+alpha <- 0.025
+right <- 1 - (1-alpha)^7
+```
+
+### Part G
+
+```{r, eval = F, echo = T, warning = F, message = F}
+
+```
+
+\newpage
+
+## Question 24.8
+
+### Part A
+
+```{r, eval = F, echo = T, warning = F, message = F}
+B <- qt(1 - (0.05/6), 16)
+MSE <- MSE
+
+# Factor A
+FA.mean <- means %>%
+  group_by(FactorA) %>%
+  summarise(means = mean(means))
+
+mu2.. <- 65.7
+mu1.. <- 54.2
+D1 <- mu2.. - mu1..
+
+# Factor B
+FB.mean <- means %>%
+  group_by(FactorB) %>%
+  summarise(means = mean(means))
+
+mu.2. <- 68
+mu.1. <- 52
+D2 <- mu.2. - mu.1.
+
+# Factor C
+FC.mean <- means %>%
+  group_by(FactorC) %>%
+  summarise(means = mean(means))
+
+mu..2 <- 70
+mu..1 <- 49.9
+D3 <- mu..2 - mu..1
+
+S2 <- MSE/(3*2)
+s <- sqrt(S2)
+
+D1.LL <- D1 - B*s; D1.UL <- D1 + B*s
+D2.LL <- D2 - B*s; D2.UL <- D2 + B*s
+D3.LL <- D3 - B*s; D3.UL <- D3 + B*s
+
+blah <- data.frame(
+  D1 = c(D1.LL, D1.UL),
+  D2 = c(D2.LL, D2.UL),
+  D3 = c(D3.LL, D3.UL)
+)
+
+rownames(blah) <- c("Lower Limit", "Upper Limit")
+kable(blah[], caption = "Bonerroni 95%", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+### Part B
+
+```{r, eval = F, echo = T, warning = F, message = F}
+t.value <- qt(0.975,16)
+S2.Y.bar <- MSE/(3)
+s <- sqrt(S2.Y.bar)
+Y.LL <- S2.Y.bar - t.value*s; Y.UL <- S2.Y.bar + t.value*s
+moo <- data.frame(
+  Y.222 = c(Y.LL, Y.UL)
+)
+
+row.names(moo) <- c("Lower Limit", "Upper Limit") 
+kable(moo[], caption = "95% Estimate", format = "markdown") %>%
+  kable_styling(position = "center")
+```
