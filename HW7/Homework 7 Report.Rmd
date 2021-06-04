@@ -1,0 +1,525 @@
+---
+title: |
+  \vspace{5cm} <center> STP 531 </center>
+  <center> Applied Analysis of Variance </center>
+  <center> Homework 7 </center>
+  
+author: "Nathan A. Nguyen"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  pdf_document:
+    keep_tex: true
+header-includes:
+  \usepackage{booktabs}
+  \usepackage{longtable}
+  \usepackage{array}
+  \usepackage{multirow}
+  \usepackage{wrapfig}
+  \usepackage{float}
+  \usepackage{colortbl}
+  \usepackage{pdflscape}
+  \usepackage{tabu}
+  \usepackage{threeparttable}
+  \usepackage{threeparttablex}
+  \usepackage[normalem]{ulem}
+  \usepackage{makecell}
+  \usepackage{xcolor}
+---
+
+```{r setup, include=FALSE, eval = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+library(tidyverse)
+library(knitr)
+library(formatR)
+library(kableExtra)
+# library(psych)
+# library(gridExtra)
+# library(jtools)
+# library(ggpubr)
+library(car)
+# library(GGally)
+# library(ggcorrplot)
+# library(matlib)
+# library(mvoutlier)
+# library(matlab)
+library(ALSM)
+library(ggpubr)
+library(stargazer)
+library(ggfortify)
+library(MASS)
+library(ggsci)
+library(gplots)
+library(gridExtra)
+setwd('C:\\Users\\natha\\Classes\\Current Classes\\STP 531 - Applied Analysis of Variance\\Homework\\Homework 7')
+```
+
+\newpage
+
+# Question 25.5
+
+## Part A
+
+Suppose now that the six machine were randomly selected from a population of machines eligible for the study and consider model (25.1).
+
+$\mu{.}$ denotes the mean carton weight for all 20 cartons for all machines in the study.
+
+$\sigma_{\mu}^2$ denotes the variability between of the mean carton fill between the 6 machines.
+
+$\sigma^{2}$ denotes the overall mean carton fill variance on the whole
+
+$\sigma^2\{Y_{ij}\}$ denotes the variability between all observations among the 6 machines, regardless of which machine was used.
+
+\newpage
+
+# Question 25.7
+
+## Part A
+
+```{r, eval = T, echo = F, warning = F, message = F}
+data <- read.table("https://people.stat.sc.edu/hitchcock/sodiumcontent.txt", header = FALSE, col.names = c("Sodium", "Brand", "Index"))
+
+data$Brand <- as.factor(data$Brand)
+
+model.1 <- lm(Sodium ~ Brand, data = data)
+blah <- anova(model.1)
+kable(blah[], caption = "ANOVA Table", format = "markdown") %>% 
+  kable_styling(position = "center")
+
+F.star <- 170.906/0.716
+F.crit <- qf(0.99,5,42)
+p <- pf(F.star,5,42,lower.tail = FALSE)
+```
+
+$$
+\begin{aligned}
+H_{0} &: \sigma_{\mu}^2 = 0 \\
+H_{a} &: \sigma_{\mu}^2 > 0 \\
+F^{*} &= \frac{MSTR}{MSE} = \frac{170.906}{0.716} \approx 283.71 \\
+F_{critical} &= F(0.99;5,42) \approx 3.49 \\
+p &\approx 0^{+} \\
+&\text{since} \ F^{*} > F_{critical}, \ \text{reject} \ H_{0}
+\end{aligned}
+$$
+
+Since $F^{*} > F_{critical}$ and $p = 1.085*10^{-29} << 0.01 = \alpha$, there is sufficient evidence to reject the null hypothesis. The mean sodium content is not the same across all brands sold.
+
+## Part B
+
+$$
+\begin{aligned}
+\bar{Y_{..}} &\pm t(0.995,5)s\{\bar{Y_{..}\}} \\
+\hat{\mu_{.}}\ &= \bar{Y_{..}} \approx 17.63 \\
+s^{2}\{\bar{Y..}\} &= \frac{MSTR}{rn} = \frac{170.906}{6(8)} = 3.56 \\
+s\{\bar{Y..}\} &= 1.89
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+Ybar.. <- mean(data$Sodium)
+t.value <- qt(0.995,5)
+Ybar..var <- 170.906/48
+Ybar..STD <- sqrt(Ybar..var)
+Ybar..LL <- Ybar.. - t.value*Ybar..STD
+Ybar..UL <- Ybar.. + t.value*Ybar..STD
+
+blah <- data.frame(
+  value = c(Ybar..LL, Ybar..UL)
+)
+row.names(blah) <- c("Lower Limit","Upper Limit")
+kable(blah[], caption = "99% CI for mean sodium content for all brands", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+# Question 25.8
+
+$$
+\begin{aligned}
+\sigma^{2} &\approx E\{MSE\} \rightarrow 0.716 \\
+s_{\mu}^{2} &= \frac{MSTR-MSE}{n} = \frac{170.906-0.716}{8} \approx 21.27
+\end{aligned}
+$$
+
+## Part B
+
+```{r, eval = T, echo = F, warning = F, message = F}
+s2 <- (170.906-0.716)/8
+```
+
+## Part C
+
+$$
+\begin{aligned}
+&\frac{r(n-1)MSE}{\chi^{2}[1-\alpha/2;r(n-1)]} \leq \sigma^{2} \leq \frac{r(n-1)MSE}{\chi^{2}[\alpha/2;r(n-1)]} \\
+&\frac{42(0.716)}{69.336} \leq \sigma^{2} \leq \frac{42(0.716)}{22.138} \\
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+MSE <- 0.716
+value <- 6*(8-1)
+chi.lower <- qchisq(1-(0.01/2),42)
+chi.upper <- qchisq((0.01/2),42)
+LL <- ((42*MSE))/chi.lower
+UP <- ((42*MSE))/chi.upper
+blah <- data.frame(
+  value = c(LL, UP)
+)
+row.names(blah) <- c("Lower Limit", "Upper Limit")
+kable(blah[], caption = "99% CI", format = "markdown") %>% kable_styling(position = "center")
+```
+
+## Part D
+
+$$
+\begin{aligned}
+H_{0} &: \sigma_{\mu}^2 \leq 2\sigma^{2} \\
+H_{a} &: \sigma_{\mu}^{2} > 2\sigma^{2} \\
+F^{*} &= \frac{MSTR}{2n+1} \div MSE \\
+F^{*} &= \frac{170.906}{2(8)+1} \div 0.716 \approx 14.04 \\
+F_{critical} &= F(0.99;5;42) \approx 3.48 \\
+\text{Since} \ &F^{*} > F_{critical}, \ \text{reject} \ H_{0}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+F.star <- 170.906 / (2*8+1) * 1/MSE
+F.crit <- qf(0.99,5,42)
+```
+
+Since $F^{*} \approx 14 > 3.48 \approx F_{critical}$ there is sufficient evidence to reject the null hypothesis in favour of the alternative. There is reason to suspect that the mean sodium content between brands is greater than twice as within brands.
+
+\newpage
+
+# Question 25.11
+
+For (25.42) Factor A is fixed and Factor B is random $\sum_i (\alpha\beta)_{ij} = 0 \ \forall j$ and $\sum_j (\alpha\beta)_{ij} \neq 0 \ \forall j$ because when summing over i, we are summing over the fixed factor levels for factor A. $\sum_i (\alpha)_{i} = 0$ it self, so summing over interactions with i index will result in the sum-zero restriction. The interactions when summed over i will be independent.
+
+On the other hand, when we sum the interactions over j, we are not restricted to sum-zero because of the correlated nature of the observations within the same factor j-th factor level of B. The sum of the interactions of j will not be independent when they come from the same level of random factor B.
+
+```{r, eval = T, echo = F, warning = F, message = F}
+
+```
+
+\newpage
+
+# Question 25.17
+
+## Part A
+
+$$
+\begin{aligned}
+H_{0} &: \sigma_{\alpha\beta}^{2} = 0 \\
+H_{a} &: \sigma_{\alpha\beta}^{2} > 0 \\
+F^{*} &= \frac{MSAB}{MSE} = \frac{0.309}{4.823} \approx0.06 \\
+F_{critical} &= F(0.95;6,36) \approx 2.36 \\
+\text{Since} \ F^{*} &< F_{critical} \ \text{fail to reject} \ H_{0} \\
+p &\approx 0.999
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+data <- read.table("https://people.stat.sc.edu/hitchcock/imitationpearls.txt",
+                   header = FALSE, col.names = c("Pearls", "FactorA", "FactorB", "Index"))
+
+data2 <- data
+data$FactorA <- as.factor(data$FactorA)
+data$FactorB <- as.factor(data$FactorB)
+
+model.2 <- lm(Pearls ~ FactorA + FactorB + FactorA:FactorB, data = data)
+
+blah <- anova(model.2)
+kable(blah[], caption = "ANOVA Table", format = "markdown") %>% 
+  kable_styling(position = "center")
+
+F.star <- 0.309/4.823
+F.crit <- qf(0.95,6,36)
+p <- pf(F.star,6,36,lower.tail=F)
+```
+
+Since $F^{*} < F_{critical}$ and $p > 0.05$ we fail the reject the null hypothesis. There is sufficient evidence to suggest that there are no meaningful interactions present.
+
+## Part B
+
+**Factor A**
+
+$$
+\begin{aligned}
+H_{0} &: \sigma_{\alpha}^{2} = 0 \\
+H_{a} &: \sigma_{\alpha}^{2} \neq 0 \\
+F^{*} &= \frac{MSA}{MSAB} = \frac{75.194}{0.309} \approx 243.35 \\
+F_{critical} &= F(0.95;2,6) \approx 5.14 \\
+p &= 0^{+} \\
+\text{Since} \ F^{*} &> F_{critical}, \ \text{reject} \ H_{0}
+\end{aligned}
+$$
+
+**Factor B**
+
+$$
+\begin{aligned}
+H_{0} &: \sigma_{\beta}^{2} = 0 \\
+H_{a} &: \sigma_{\beta}^{2} \neq 0 \\
+F^{*} &= \frac{MSB}{MSE} = \frac{50.951}{4.823} \approx 10.56 \\
+F_{critical} &= F(0.95;3, 36) \approx 2.87 \\
+p &= 0^{+} \\
+\text{Since} \ F^{*} &> F_{critical}, \ \text{reject} \ H_{0}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+# Factor A
+F.star <- 75.194/0.309
+F.crit <- qf(0.95,2,6)
+p <- pf(F.star,2,6,lower.tail = FALSE)
+
+# Factor B
+F.star <- 50.951/4.823
+F.crit <- qf(0.95,3,36)
+p <- pf(F.star,3,36,lower.tail = FALSE)
+```
+
+When testing for main effects for both Factor A and Factor B, we rejected the null hypothesis for both cases. In both cases $F^{*} > F_{critical}$ and $p < 0.05 = \alpha$ respectively. There is sufficient evidence to conclude that there a main effects present. Operator 5 has an interesting looking curve.
+
+## Part D
+
+$$
+\begin{aligned}
+\hat{\mu_{2.}} &= \bar{Y}_{2..} \approx 76.8 \\
+s^{2}\{\hat{\mu_{2.}}\} &= c1MSAB + c2MSB \approx 1.704 \\
+s\{\hat{\mu_{2.}}\} &\approx 1.037 \\
+df_{sat} &= \frac{\bigg(\frac{a-1}{nab}MSAB+\frac{1}{nab}MSB\bigg)^{2}}{\frac{\big(\frac{a-1}{nab}MSAB\big)^{2}}{(a-1)(b-1)}+\frac{\big(\frac{1}{nab}MSB\big)^{2}}{b-1}} \ (25.65) \\
+df_{sat} &\approx 3.702 \\
+t &= t(0.975;3) \approx 3.182 \\
+\hat{\mu_{2.}} &\pm t(0.975; 3)s\{\hat{\mu_{2.}}\}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message =  F}
+means <- data %>%
+  group_by(FactorA) %>%
+  summarise(means = mean(Pearls))
+
+mu2. <- 76.8
+a <- 3
+b <- 4
+n <- 48
+c1 <- (a-1)/(48)
+c2 <- (1)/(48)
+MSAB <- 0.309
+MSB <- 50.951
+temp1 <- c1*MSAB
+temp2 <- c2*MSB
+variance <- temp1 + temp2
+std <- sqrt(variance)
+
+nab <- 48
+df <- ((temp1 + temp2)^2) / ((temp1^2)/(2*3) + (temp2^2)/(3))
+t.value <- qt(0.975, df= 3)
+
+mu2.LL <- mu2. - t.value*std
+mu2.UL <- mu2. + t.value*std
+
+blah <- data.frame(
+  value = c(mu2.LL, mu2.UL)
+)
+
+row.names(blah) <- c("Lower Limit", "Upper Limit")
+kable(blah[], caption = "95% CI Satterthwaite Approx.", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+With $95\%$ confidence, we conclude that the mean market value for 8 coats on the pearls fall somewhere between 73.50 and 80.10 units ($73.50136 \leq \mu_{2} \leq 80.09864$.
+
+```{r, eval = T, echo = F, warning = F, message = F}
+library(lme4); library(jtools)
+data2$FactorA <- as.factor(data2$FactorA)
+model.3 <- lmer(Pearls ~ FactorA + (1|FactorB) + (1|FactorA:FactorB), data = data2, REML = FALSE)
+summ(model.3)
+```
+
+\newpage
+
+# Question 25.17 Matrix
+
+![](model.png)
+
+\newpage
+
+# 25.1 (Extra credit)
+
+The $\mu_{i}$ denote the variability for the different i-levels of the random factor variable. On the other hand the $\epsilon_{ij}$ denotes the variation with regards to the different potential values for the i-th level of the random factor any different j-th observation. There are two difference variations in the model, variability by means at the i-th level of random factor and the variability.
+
+The distribution for each i-th level may be different, but the variance should be the same.
+
+\newpage
+
+# Appendix
+
+## Question 25.5
+
+### Part A
+
+```{r, eval = F, echo = T, warning = F, message = F}
+
+```
+
+\newpage
+
+## Question 25.7
+
+### Part A
+
+```{r, eval = F, echo = T, warning = F, message = F}
+data <- read.table("https://people.stat.sc.edu/hitchcock/sodiumcontent.txt", header = FALSE, col.names = c("Sodium", "Brand", "Index"))
+
+data$Brand <- as.factor(data$Brand)
+
+model.1 <- lm(Sodium ~ Brand, data = data)
+blah <- anova(model.1)
+kable(blah[], caption = "ANOVA Table", format = "markdown") %>% 
+  kable_styling(position = "center")
+
+F.star <- 170.906/0.716
+F.crit <- qf(0.99,5,42)
+p <- pf(F.star,5,42,lower.tail = FALSE)
+```
+
+### Part B
+
+```{r, eval = F, echo = T, warning = F, message = F}
+Ybar.. <- mean(data$Sodium)
+t.value <- qt(0.995,5)
+Ybar..var <- 170.906/48
+Ybar..STD <- sqrt(Ybar..var)
+Ybar..LL <- Ybar.. - t.value*Ybar..STD
+Ybar..UL <- Ybar.. + t.value*Ybar..STD
+
+blah <- data.frame(
+  value = c(Ybar..LL, Ybar..UL)
+)
+row.names(blah) <- c("Lower Limit","Upper Limit")
+kable(blah[], caption = "99% CI for mean sodium content for all brands", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+## Question 25.8
+
+### Part B
+
+```{r, eval = F, echo = T, warning = F, message = F}
+s2 <- (170.906-0.716)/8
+```
+
+### Part C
+
+```{r, eval = F, echo = T, warning = F, message = F}
+MSE <- 0.716
+value <- 6*(8-1)
+chi.lower <- qchisq(1-(0.01/2),42)
+chi.upper <- qchisq((0.01/2),42)
+LL <- ((42*MSE))/chi.lower
+UP <- ((42*MSE))/chi.upper
+blah <- data.frame(
+  value = c(LL, UP)
+)
+row.names(blah) <- c("Lower Limit", "Upper Limit")
+kable(blah[], caption = "99% CI", format = "markdown") %>% kable_styling(position = "center")
+```
+
+### Part D
+
+```{r, eval = F, echo = T, warning = F, message = F}
+F.star <- 170.906 / (2*8+1) * 1/MSE
+F.crit <- qf(0.99,5,42)
+```
+
+\newpage
+
+## Question 25.11
+
+```{r, eval = F, echo = T, warning = F, message = F}
+
+```
+
+\newpage
+
+## Question 25.17
+
+### Part A
+
+```{r, eval = F, echo = T, warning = F, message = F}
+data <- read.table("https://people.stat.sc.edu/hitchcock/imitationpearls.txt",
+                   header = FALSE, col.names = c("Pearls", "FactorA", "FactorB", "Index"))
+data$FactorA <- as.factor(data$FactorA)
+data$FactorB <- as.factor(data$FactorB)
+
+model.2 <- lm(Pearls ~ FactorA + FactorB + FactorA:FactorB, data = data)
+
+blah <- anova(model.2)
+kable(blah[], caption = "ANOVA Table", format = "markdown") %>% 
+  kable_styling(position = "center")
+
+F.star <- 0.309/4.823
+F.crit <- qf(0.95,6,36)
+p <- pf(F.star,6,36,lower.tail=F)
+```
+
+### Part B
+
+```{r, eval = F, echo = T, warning = F, message = F}
+# Factor A
+F.star <- 75.194/0.309
+F.crit <- qf(0.95,2,6)
+p <- pf(F.star,2,6,lower.tail = FALSE)
+
+# Factor B
+F.star <- 50.951/4.823
+F.crit <- qf(0.95,3,36)
+p <- pf(F.star,3,36,lower.tail = FALSE)
+```
+
+### Part D
+
+```{r, eval = F, echo = T, warning = F, message = F}
+means <- data %>%
+  group_by(FactorA) %>%
+  summarise(means = mean(Pearls))
+
+mu2. <- 76.8
+a <- 3
+b <- 4
+n <- 48
+c1 <- (a-1)/(48)
+c2 <- (1)/(48)
+MSAB <- 0.309
+MSB <- 50.951
+temp1 <- c1*MSAB
+temp2 <- c2*MSB
+variance <- temp1 + temp2
+std <- sqrt(variance)
+
+nab <- 48
+df <- ((temp1 + temp2)^2) / ((temp1^2)/(2*3) + (temp2^2)/(3))
+t.value <- qt(0.975, df= 3)
+
+mu2.LL <- mu2. - t.value*std
+mu2.UL <- mu2. + t.value*std
+
+blah <- data.frame(
+  value = c(mu2.LL, mu2.UL)
+)
+
+row.names(blah) <- c("Lower Limit", "Upper Limit")
+kable(blah[], caption = "95% CI Satterthwaite Approx.", format = "markdown") %>%
+  kable_styling(position = "center")
+
+library(lme4); library(jtools)
+data2$FactorA <- as.factor(data2$FactorA)
+model.3 <- lmer(Pearls ~ FactorA + (1|FactorB) + (1|FactorA:FactorB), data = data2, REML = FALSE)
+summ(model.3)
+```
