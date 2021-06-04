@@ -1,0 +1,877 @@
+---
+title: |
+  \vspace{5cm} <center> STP 531 </center>
+  <center> Applied Analysis of Variance </center>
+  <center> Homework 5 </center>
+  
+author: "Nathan A. Nguyen"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  pdf_document:
+    keep_tex: true
+header-includes:
+  \usepackage{booktabs}
+  \usepackage{longtable}
+  \usepackage{array}
+  \usepackage{multirow}
+  \usepackage{wrapfig}
+  \usepackage{float}
+  \usepackage{colortbl}
+  \usepackage{pdflscape}
+  \usepackage{tabu}
+  \usepackage{threeparttable}
+  \usepackage{threeparttablex}
+  \usepackage[normalem]{ulem}
+  \usepackage{makecell}
+  \usepackage{xcolor}
+---
+
+```{r setup, include=FALSE, eval = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+library(tidyverse)
+library(knitr)
+library(formatR)
+library(kableExtra)
+# library(psych)
+# library(gridExtra)
+# library(jtools)
+# library(ggpubr)
+library(car)
+# library(GGally)
+# library(ggcorrplot)
+# library(matlib)
+# library(mvoutlier)
+# library(matlab)
+library(ALSM)
+library(ggpubr)
+library(stargazer)
+library(ggfortify)
+library(MASS)
+library(ggsci)
+library(gplots)
+setwd('C:\\Users\\natha\\Classes\\Current Classes\\STP 531 - Applied Analysis of Variance\\Homework\\Homework 5')
+```
+
+\newpage
+
+# Question 19.15
+
+## Part A
+
+```{r, eval = T, echo = F, message = F, warnings = F, fig.height=6, fig.width=8}
+getdata <- function(...){
+  e = new.env()
+  name = data(..., envir = e)[1]
+  e[[name]]
+}
+
+data <- getdata("HayFeverRelief")
+# two-factor, 3x3 = 9 treatments 
+data$A <- as.factor(data$A)
+data$B <- as.factor(data$B)
+
+treatment_means <- data %>%
+  group_by(A, B) %>%
+  summarise(means = mean(y),
+            sd = sd(y))
+
+p1 <- treatment_means %>%
+  ggplot(aes(x = A, y = means, color = B)) +
+  geom_line(aes(group = B)) + geom_point() +
+  geom_errorbar(aes(ymin = means-sd, ymax = means+sd), width = 0.05) + 
+  scale_color_d3(palette = "category20c") +
+  labs(x = "Factor A",
+       color = "Factor B",
+       y = "Mean Severe Cases of Hay Fever")
+p1
+# 
+# p2 <- ggline(data, x = "A", y = "y", color = "B",
+#        add = c("mean_se"))
+```
+
+There appears to be factor effects present. As the levels of factor A "increase", the estimated treatment means, generally, increased though factor B (level 3) influences the degree of severe fever relief different than factor B (levels 1,2). This leads to another observation in that, there appears to be some interaction between the two factors as well e.g., the tapering off of the lines for the orange and blue curves compared to the constant green line.
+
+\newpage
+
+## Part C
+
+```{r, eval = T, echo = F, message = F, warning = F}
+# test for interaction (n = 4 (number of sample sizes per treatment))
+mod.1 <- lm(y ~ A*B, data = data)
+anova.table <- data.frame(anova(mod.1))
+kable(anova.table[], caption = "Hay Fever ANOVA Table", format = "markdown") %>%
+  kable_styling(position = "center")
+p <- 1-pf(7.356/0.060,4,27) # or
+p2 <- pf(7.356/0.060,4,27, lower.tail = FALSE)
+```
+
+$$
+\begin{aligned}
+H_{0} &: (\alpha\beta)_{ij} = 0 \\
+H_{a} &: \text{not all} \ (\alpha\beta)_{ij} = 0 \\
+F^{*} &= \frac{MSAB}{MSE} = \frac{7.35}{0.06} \approx 122.5 \\
+F_{critical} &= F\big[1-\alpha;(a-1)(b-1), (n-1)ab\big] = F\big[0.95;4,27\big] \approx 2.73 \\
+&\text{if} \ F^{*} \leq F_{critical}, \text{conclude} \ H_{0} \\
+&\text{if} \ F^{*} > F_{critical}, \text{conclude} \ H_{a} \\
+p &= 0^{+}
+\end{aligned}
+$$
+
+Since $F^{*} > F_{critical}$, we reject the null hypothesis. There is sufficient evidence to suggest that there are interactions between factor A and factor B present. $p \approx$ `r p2`.
+
+## Part D
+
+$$
+\begin{aligned}
+H_{0} &: \text{all} \ \alpha_{i} = 0 \\
+H_{a} &: \text{not all} \ \alpha_{i} = 0 \\
+F^{*} &= \frac{MSA}{MSE} = \frac{110.010}{0.060} \approx 1833.5 \\
+F_{critical} &= F\big[0.95;(a-1), (n-1)ab\big] = F(0.95;2,27) \approx 3.35 \\
+p &= 0^{+}, F^{*} \approx 1833.5 > 3.35 = F_{critical}  \\
+&\text{if} \ F^{*} \leq F_{critical}, \text{conclude} \ H_{0} \\
+&\text{if} \ F^{*} > F_{critical}, \text{conclude} \ H_{a} \\
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, message = F, warnings = F}
+# Factor A
+F.star <- 110.010/0.060
+F.crit <- qf(0.95,2,27)
+p <- pf(1833.5,2,27,lower.tail = FALSE)
+```
+
+Since $F^{*} \approx 1833.5 > 3.35 = F_{critical}$, we reject the null hypothesis. There is sufficient evidence to suggest that the factor A level means $\mu_{i.}$ are all not equal. In other words, there exists main effects associated with ingredient 1 (factor A). The p-value is $p \approx$ `r p`.
+
+$$
+\begin{aligned}
+H_{0} &: \text{all} \ \beta_{j} = 0 \\
+H_{a} &: \text{not all} \ \beta_{j} = 0 \\
+F^{*} &= \frac{MSB}{MSE} = \frac{61.830}{0.060} \approx 1030.5 \\
+F_{critical} &= F\big[0.95;(b-1), (n-1)ab\big] = F(0.95;2,27) \approx 3.35 \\
+p &= 0^{+}, F^{*} \approx 1030.5 > 3.35 = F_{critical}  \\
+&\text{if} \ F^{*} \leq F_{critical}, \text{conclude} \ H_{0} \\
+&\text{if} \ F^{*} > F_{critical}, \text{conclude} \ H_{a} \\
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, message = F, warnings = F}
+# Factor B
+F.star <- 61.830/0.060
+F.crit <- qf(0.95,2,27)
+p <- pf(1030.5,2,27,lower.tail = F)
+```
+
+Since .$F^{*} \approx 1030.5 > 3.35 = F_{critical}$, we reject the null hypothesis. There is sufficient evidence to suggest that main effects for factor B are present. The p-value is `r p`.
+
+\newpage
+
+# Question 19.32
+
+Scheffe multiple comparison procedure with family confidence 0.90:$$
+\begin{aligned}
+L_{1} &= \frac{\mu_{12}+\mu_{13}}{2} - \mu_{11} \\
+L_{2} &= \frac{\mu_{22}+\mu_{23}}{2} - \mu_{21} \\
+L_{3} &= \frac{\mu_{32}+\mu_{33}}{2} - \mu_{31} \\
+L_{4} &= L_{2} - L_{1} \\
+L_{5} &= L_{3} - L_{1} \\
+L_{6} &= L_{3}-l_{2} \\
+s^{2}\{\hat{L}\}&= \frac{0.060}{4} \sum(-1)^2 + (0.5)^2 + (0.5)^2 \approx 0.0225 \\ 
+s\{\hat{L}\} &\approx 0.15 \\
+S^{2} &= (3*3-1)F[0.90;8,27] \approx 15.2\\
+S &\approx 3.899 \ \text{works for} \ i = 1,2,3
+\end{aligned}
+$$
+
+## Part C
+
+```{r, eval = T, echo = F, message = F, warning = F}
+results <- data %>%
+  group_by(A, B) %>%
+  summarise(means = mean(y))
+temp2 <- data.frame(t(results))
+temp2 <- temp2 %>%
+  mutate_if(is.character, as.numeric)
+
+L1 <- (temp2[3,2]+temp2[3,3])/2 - temp2[3,1]
+L2 <- (temp2[3,5]+temp2[3,6])/2 - temp2[3,4]
+L3 <- (temp2[3,8]+temp2[3,9])/2 - temp2[3,7]
+
+MSE <- 0.060
+a <- 3
+b <- 3
+n <- 4
+est.variance <- (0.060/4) * ((-1)^2 +(0.5)^2 + (0.5)^2)
+est.std <- sqrt(est.variance)
+# sigma2.L <- sqrt(0.060/(b*n) * ((-1)^2 +(1/2)^2 +(1/2)^2))
+S2 = (3*3-1)*qf(0.90,8,27)
+S = sqrt(S2)
+
+L1.LL <- L1 - S*est.std; L1.UL <- L1 + S*est.std;
+L2.LL <- L2 -  S*est.std; L2.UL <- L2 + S*est.std;
+L3.LL <- L3 -  S*est.std; L3.UL <- L3 +  S*est.std;
+
+corgi <- data.frame(
+  L1 = c(L1.LL, L1.UL),
+  L2 = c(L2.LL, L2.UL),
+  L3 = c(L3.LL, L3.UL)
+)
+row.names(corgi) <- c("Lower Limit", "Upper Limit")
+kable(corgi[], caption = "90% Scheffe Confidence for L1,L2,L3", format = "markdown") %>% kable_styling(position = "center")
+```
+
+```{r, eval = T, echo = F, warning = F, message = F}
+EST.VAR <- (0.060/4) * (2*(-1)^2+ 2*(0.5)^2+ 2*(0.5)^2)
+EST.STD <- sqrt(EST.VAR)
+L4 <- L2 - L1
+L5 <- L3 - L1
+L6 <- L3 - L2
+L4.LL <- L4 - S*EST.STD; L4.UL <- L4 + S*EST.STD;
+L5.LL <- L5 - S*EST.STD; L5.UL <- L5 + S*EST.STD;
+L6.LL <- L6 - S*EST.STD; L6.UL <- L6 + S*EST.STD
+
+poodle <- data.frame(
+  L4 = c(L4.LL, L4.UL),
+  L5 = c(L5.LL, L5.UL),
+  L6 = c(L6.LL, L6.UL)
+)
+kable(poodle[], caption = "90% Scheffe for L4, L5, L6", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+```{r, eval = T, echo = F, message = F, warning = F}
+# kable(anova.table[], caption = "Hay Fever ANOVA Table", format = "markdown") %>%
+#   kable_styling(position = "center")
+temp3 <- t(results)
+kable(temp3[], caption = "Treatment Means", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\pagebreak
+
+# Question 23.22
+
+![](images/23.22%20(1).pdf)
+
+![](images/23.22%20(2).pdf)
+
+\newpage
+
+# Question 4 (data from 23.9)
+
+## Part A
+
+```{r, eval = T, echo = F, message = F, warning = F, fig.height=6, fig.width=8}
+data2 <- read.table("https://people.stat.sc.edu/Hitchcock/adjunctprofessors.txt",
+                    header = FALSE, col.names = c("earnings", "topic", "degree","observation"))
+data2$topic <- as.factor(data2$topic)
+data2$degree <- as.factor(data2$degree)
+
+# library(car)
+earnings.mod <- lm(earnings ~ topic + degree + topic:degree, data = data2)
+corgi <- data.frame(Anova(earnings.mod, type = "III"))
+kable(corgi[], caption = "Earnings ANOVA Type 3 SS", format = "markdown") %>%
+  kable_styling(position = "center")
+
+# plotMeans(data2$earnings, data2$topic, data2$degree)
+
+alt.means <- data2 %>%
+  group_by(topic, degree) %>%
+  summarise(means = mean(earnings),
+            sds = sd(earnings))
+
+p2 <- alt.means %>%
+  ggplot(aes(x = topic, y = means, color = degree)) +
+  geom_line(aes(group = degree)) + geom_point() +
+  geom_errorbar(aes(ymin = means-sds, ymax = means+sds), width = 0.04) +
+  scale_color_d3() +
+  labs(x = "Subject",
+       y = "Mean Earnings",
+       color = "Degree Level")
+p2
+```
+
+There doesn't appear to be any serious interactions between subject matter and level of degrees, as the three curves are parallel for the most part. The gap start closes between subjects 3 and 4 (engineering and management) at degree levels 1 and 2 (bachelor's and master's). Whether or not the interaction is significant, is to be determined based on the Type III SS; however, again, the plot doesn't suggest any serious interactions between the two factors. There are main effects present.
+
+\newpage
+
+## Part B
+
+```{r, eval = T, echo = F, message = F, warning = F}
+blah1 <- anova(earnings.mod)
+blah2 <- Anova(earnings.mod, type = "2")
+blah3 <- Anova(earnings.mod, type = "3")
+kable(blah1[], caption = "Type 1 SS", format = "markdown") %>%
+  kable_styling(position = "center") 
+kable(blah2[], caption = "Type 2 SS", format = "markdown") %>%
+  kable_styling(position = "center")
+kable(blah3[], caption = "Type 3 SS", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+## Part C
+
+Type 3 SS should be used over the other types of SS because in the unbalanced design, the sum of squares are no longer orthogonal. Type 3 SS tries to remove the confounding of the interaction effect as a result of the imbalance cells. A sequential approach would not be appropriate for unbalanced data.
+
+I've read elsewhere that Type 2 can be used when there is no interaction. In this case, there is evidence of an interaction between the two factors, so would it be acceptable to use Type 2 SS?
+
+The plot and ANOVA tables suggest that there are main effects present for factors A (subject) and B (degree level). Based on the graph, it appears that the higher level degree one has, the more one earns in an adjunct role. It also appears that the different subject matters influences earnings as well, e.g., a more STEM oriented degree (engineering) will earn more than a social science and humanities discipline.
+
+## Part D
+
+The least squares means should be reported because it adjusts for the differences in cell sizes. The standard mean can be misleading because it can be a confounded measure (inflated because of the unbalanced nature of the study). The standard mean may be too optimistic in the unbalanced case.
+
+```{r, eval = T, echo = F, message = F, warnings = F}
+
+```
+
+\newpage
+
+## Part E
+
+```{r, eval = T, echo = F, message = F, warning = F}
+library(lsmeans)
+earnings.mod <- lm(earnings ~ topic + degree + topic:degree, data = data2)
+
+a = lsmeans(earnings.mod,
+        pairwise ~ degree,
+        adjust = "tukey")
+
+b = lsmeans(earnings.mod,
+        pairwise ~ topic,
+        adjust = "tukey")
+a
+b
+# kable(a[], caption = "lsmeans degree", format = "markdown") %>%
+  # kable_styling(position = "center")
+
+# kable(b[],caption = "lsmeans topic", format = "markdown") %>%
+  # kable_styling(position = "center")
+```
+
+For the least squares means comparisons on degree level, it is suggest that if one has a doctorate degree, you generally make more money compared to just having a bachelor's or master's degree. There doesn't seem to be a significant difference between the amount of money a bachelor's degree and master's degree (one of the contrasts is not significant $p = 0.45$), which is suggestive of the plot.
+
+It is suggested that humanities and social sciences disciplines, in general earn less than those in engineering. There doesn't seem to be a significant difference in earnings between those in the social sciences and management subjects though ($p = 0.9604$). All p-values are significant other than that particular contrast.
+
+\newpage
+
+# Question 21.1
+
+There is a big difference between the completely randomized design (CRD) and the randomized block design (RBD). For CRD, a random permutation is used to randomly assign treatments to the experimental units; however, this is only done in one go.
+
+The RBD has n amount of blocks, and so there will be n independent permutations for independent assignment of treatments for the n blocks. In other words, each block is independently assigned treatments with their own randomization.
+
+\newpage
+
+# Question 21.7
+
+## Part A
+
+```{r, eval = T, echo = F, message = F, warning = F}
+data3 <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2021%20Data%20Sets/CH21PR07.txt",
+                    header = FALSE, col.names = c("lipd_level", "block", "fat_content"))
+
+data3$block <- as.factor(data3$block) # Factor A (5 blocks)
+data3$fat_content <- as.factor(data3$fat_content) # Factor B (3 levels)
+
+```
+
+I believe age was used as a blocking factor because people's metabolisms change over time, generally slowing down as one gets older. It may be the case that lipid levels are different across age groups, due to changes in metabolic functions. It also may be the case that the risk of coronary heart disease is different at different age groups as well. Because of the two hypothesis, it would not be fair to directly compare the treatment effects (experimental diet) when we have this age structure going on. The results can be misleading, confounders e.g., metabolic functions etc as mentioned.
+
+## Part C
+
+```{r, eval = T, echo = F, message = F, warning = F}
+p3 <- data3 %>%
+  ggplot(aes(x = block, y = lipd_level, color = fat_content)) +
+  geom_line(aes(group = fat_content)) + geom_point() +
+  labs(x = "Age Block",
+       y = "Lipid Level Reduction",
+       color = "Experimental Diet") +
+  scale_color_d3()
+p3
+```
+
+The curves are parallel, so I'd say that the no interaction assumption is appropriate.
+
+\newpage
+
+## Part D
+
+$$
+\begin{aligned}
+H_{0} &: D = 0 \\
+H_{a} &: D \neq 0 \\
+F^{*} &= \frac{SSBL.TR^{*}}{1} \div \frac{SSRem^{*}}{rn_{b}-r-n_{b}} \\
+F_{critical} & = F[0.99,1,7] \approx 12.25 \\
+F^{*} &\approx 6.50 \\ 
+&\text{since} \ F^{*} < F_{critical}, \ \text{fail to reject null hypothesis}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, message = F, warnings = F}
+# original author of the function: Jim Robison-Cox
+# citation: http://fisher.utstat.utoronto.ca/~mahinda/stac52/tukey.txt
+tukeys.add.test <- function(y,A,B){
+## Y is the response vector
+## A and B are factors used to predict the mean of y
+## Note the ORDER of arguments: Y first, then A and B
+   dname <- paste(deparse(substitute(A)), "and", deparse(substitute(B)),
+                  "on",deparse(substitute(y)) )
+   A <- factor(A); B <- factor(B)
+   ybar.. <- mean(y)
+   ybari. <- tapply(y,A,mean)
+   ybar.j <- tapply(y,B,mean)
+   len.means <- c(length(levels(A)), length(levels(B)))
+   SSAB <- sum( rep(ybari. - ybar.., len.means[2]) * 
+                rep(ybar.j - ybar.., rep(len.means[1], len.means[2])) *
+                tapply(y, interaction(A,B), mean))^2 / 
+                  ( sum((ybari. - ybar..)^2) * sum((ybar.j - ybar..)^2))
+   aovm <- anova(lm(y ~ A+B))
+   SSrem <- aovm[3,2] - SSAB
+   dfdenom <- aovm[3,1] - 1
+    STATISTIC <- SSAB/SSrem*dfdenom
+    names(STATISTIC) <- "F"
+    PARAMETER <- c(1, dfdenom)
+    names(PARAMETER) <- c("num df", "denom df")
+    D <- sqrt(SSAB/  ( sum((ybari. - ybar..)^2) * sum((ybar.j - ybar..)^2)))
+    names(D) <- "D estimate"
+    RVAL <- list(statistic = STATISTIC, parameter = PARAMETER, 
+        p.value = 1 - pf(STATISTIC, 1,dfdenom), estimate = D,
+        method = "Tukey's one df F test for Additivity", 
+        data.name = dname)
+    attr(RVAL, "class") <- "htest"
+    return(RVAL)
+   }
+
+tukey.results <- tukeys.add.test(y = data3$lipd_level, A = data3$block, data3$fat_content)
+tukey.results
+```
+
+The p-value is `r tukey.results$p.value`. Since we reject the null hypothesis at $\alpha = 0.01$, there is sufficient evidence for us to conclude that there are no block-treatment interactions.
+
+\newpage
+
+# Question 21.8
+
+## Part A
+
+```{r, eval = T, echo = F, message = F, warnings = F}
+mod.4 <- lm(lipd_level ~ block + fat_content, data = data3)
+RBD.ANOVA <- anova(mod.4)
+kable(RBD.ANOVA[], caption = "ANOVA Table for Age-Fat Diet", format = "markdown") %>% kable_styling(position = "center")
+```
+
+## Part C
+
+$$
+\begin{aligned}
+H_{0} &: \tau_{j} = 0 \\
+H_{a} &: \ \text{not all} \ \tau_{j} = 0 \\
+F^{*} &= \frac{MSTR}{MSBL.TR} = \frac{0.66014}{0.00242} \approx 272.79 \\
+F_{critical} &= F[0.95,2;8] \approx 4.46\\ 
+&\text{since} \  F^{*} > F_{critical}, \ \text{reject null hypothesis}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, message = F, warnings = F}
+F.star = 0.66014/0.00242
+F.crit = qf(0.95,2,8)
+p = pf(272.72,2,8, lower.tail = F)
+```
+
+Since $F^{*} > F_{critical}$ there is sufficient evidence to reject the null hypothesis. There is reason to believe that the mean lipid level reduction for the three diets differ. The p-value is `r p`.
+
+## Part D
+
+$$
+\begin{aligned}
+B &= t(1-\frac{0.05}{4}, 8) \approx 2.75 \\
+s^{2}\{D\} &= \frac{2MSBL.TR}{5} \approx 9.68*10^{-4} \\
+s &\approx 0.031 \\
+\hat{D_{1} } &\approx 1.11 - 0.992 \\
+\hat{D_2} &\approx  0.992 - 0.43
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, message = F, warning = F}
+age_means <- data3 %>%
+  group_by(block, fat_content) %>%
+  summarise(means = mean(lipd_level))
+
+woof <- data3 %>%
+  group_by(fat_content) %>%
+  summarise(means = mean(lipd_level))
+
+D1 = 1.11 - 0.992
+D2 = 0.992 - 0.43
+S2 <- (2*0.00242)/5
+s <- sqrt(S2)
+B <- qt(0.9875,8)
+D1.LL <- D1 - B*s; D1.UL <- D1 + B*s
+D2.LL <- D2 - B*s; D2.UL <- D2 + B*s
+
+blah <- data.frame(
+  D1 = c(D1.LL, D1.UL),
+  D2 = c(D2.LL, D2.UL)
+)
+row.names(blah) <- c("Lower", "Upper")
+kable(blah[], caption = "95 Bonferroni", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+# Question 21.19
+
+$$
+\begin{aligned}
+\hat{E} &= \frac{(n_{b}-1)MSBL+n_{b}(r-1)MSBL.TR}{(n_{b}r-1)MSBL.TR} \\
+\hat{E} &= \frac{(5-1)0.35474+5(3-1)0.00242}{(5*3-1)0.00242} \approx 43
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, message = F, warnings = F}
+num <- (5-1)*0.35474 + 5*(3-1)*0.00242
+denom <- (5*3-1)*0.00242
+E.prime <- num/denom
+```
+
+If we didn't use a blocking factor, we'd need a need to increase our sample size by a factor of about 40 to achieve similar results in a completely randomized design. In other words, blocking was very efficient in this study.
+
+\newpage
+
+# Appendix
+
+## Question 19.15
+
+### Part A
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+getdata <- function(...){
+  e = new.env()
+  name = data(..., envir = e)[1]
+  e[[name]]
+}
+
+data <- getdata("HayFeverRelief")
+# two-factor, 3x3 = 9 treatments 
+data$A <- as.factor(data$A)
+data$B <- as.factor(data$B)
+
+treatment_means <- data %>%
+  group_by(A, B) %>%
+  summarise(means = mean(y),
+            sd = sd(y))
+
+p1 <- treatment_means %>%
+  ggplot(aes(x = A, y = means, color = B)) +
+  geom_line(aes(group = B)) + geom_point() +
+  geom_errorbar(aes(ymin = means-sd, ymax = means+sd), width = 0.05) + 
+  scale_color_d3(palette = "category20c")
+p1
+# 
+# p2 <- ggline(data, x = "A", y = "y", color = "B",
+#        add = c("mean_se"))
+```
+
+### Part C
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+# test for interaction (n = 4 (number of sample sizes per treatment))
+mod.1 <- lm(y ~ A*B, data = data)
+anova.table <- data.frame(anova(mod.1))
+kable(anova.table[], caption = "Hay Fever ANOVA Table", format = "markdown") %>%
+  kable_styling(position = "center")
+p <- 1-pf(7.356/0.060,4,27) # or
+p2 <- pf(7.356/0.060,4,27, lower.tail = FALSE)
+```
+
+### Part D
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+# Factor A
+F.star <- 110.010/0.060
+F.crit <- qf(0.95,2,27)
+p <- pf(1833.5,2,27,lower.tail = FALSE)
+```
+
+```{r, eval = F, echo = T, message = F, warning = F, fig.height=6, fig.width=8}
+# Factor B
+F.star <- 61.830/0.060
+F.crit <- qf(0.95,2,27)
+p <- pf(1030.5,2,27,lower.tail = F)
+```
+
+\newpage
+
+## Question 19.32
+
+### Part C
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+results <- data %>%
+  group_by(A, B) %>%
+  summarise(means = mean(y))
+temp2 <- data.frame(t(results))
+temp2 <- temp2 %>%
+  mutate_if(is.character, as.numeric)
+
+L1 <- (temp2[3,2]+temp2[3,3])/2 - temp2[3,1]
+L2 <- (temp2[3,5]+temp2[3,6])/2 - temp2[3,4]
+L3 <- (temp2[3,8]+temp2[3,9])/2 - temp2[3,7]
+
+MSE <- 0.060
+a <- 3
+b <- 3
+n <- 4
+est.variance <- (0.060/4) * ((-1)^2 +(0.5)^2 + (0.5)^2)
+est.std <- sqrt(est.variance)
+# sigma2.L <- sqrt(0.060/(b*n) * ((-1)^2 +(1/2)^2 +(1/2)^2))
+S2 = (3*3-1)*qf(0.90,8,27)
+S = sqrt(S2)
+
+L1.LL <- L1 - S*est.std; L1.UL <- L1 + S*est.std;
+L2.LL <- L2 -  S*est.std; L2.UL <- L2 + S*est.std;
+L3.LL <- L3 -  S*est.std; L3.UL <- L3 +  S*est.std;
+
+corgi <- data.frame(
+  L1 = c(L1.LL, L1.UL),
+  L2 = c(L2.LL, L2.UL),
+  L3 = c(L3.LL, L3.UL)
+)
+row.names(corgi) <- c("Lower Limit", "Upper Limit")
+kable(corgi[], caption = "90% Scheffe Confidence for L1,L2,L3", format = "markdown") %>% kable_styling(position = "center")
+
+EST.VAR <- (0.060/4) * (2*(-1)^2+ 2*(0.5)^2+ 2*(0.5)^2)
+EST.STD <- sqrt(EST.VAR)
+L4 <- L2 - L1
+L5 <- L3 - L1
+L6 <- L3 - L2
+L4.LL <- L4 - S*EST.STD; L4.UL <- L4 + S*EST.STD;
+L5.LL <- L5 - S*EST.STD; L5.UL <- L5 + S*EST.STD;
+L6.LL <- L6 - S*EST.STD; L6.UL <- L6 + S*EST.STD
+
+poodle <- data.frame(
+  L4 = c(L4.LL, L4.UL),
+  L5 = c(L5.LL, L5.UL),
+  L6 = c(L6.LL, L6.UL)
+)
+kable(poodle[], caption = "90% Scheffe for L4, L5, L6", format = "markdown") %>%
+  kable_styling(position = "center")
+
+
+# kable(anova.table[], caption = "Hay Fever ANOVA Table", format = "markdown") %>%
+#   kable_styling(position = "center")
+temp3 <- t(results)
+kable(temp3[], caption = "Treatment Means", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+## Question 4 (data from 23.9)
+
+### Part A
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+data2 <- read.table("https://people.stat.sc.edu/Hitchcock/adjunctprofessors.txt",
+                    header = FALSE, col.names = c("earnings", "topic", "degree","observation"))
+data2$topic <- as.factor(data2$topic)
+data2$degree <- as.factor(data2$degree)
+
+# library(car)
+earnings.mod <- lm(earnings ~ topic + degree + topic:degree, data = data2)
+corgi <- data.frame(Anova(earnings.mod, type = "III"))
+kable(corgi[], caption = "Earnings ANOVA Type 3 SS", format = "markdown") %>%
+  kable_styling(position = "center")
+
+# plotMeans(data2$earnings, data2$topic, data2$degree)
+
+alt.means <- data2 %>%
+  group_by(topic, degree) %>%
+  summarise(means = mean(earnings),
+            sds = sd(earnings))
+
+p2 <- alt.means %>%
+  ggplot(aes(x = topic, y = means, color = degree)) +
+  geom_line(aes(group = degree)) + geom_point() +
+  geom_errorbar(aes(ymin = means-sds, ymax = means+sds), width = 0.04) +
+  scale_color_d3() +
+  labs(x = "Subject",
+       y = "Mean Earnings",
+       color = "Degree Level")
+p2
+```
+
+### Part B
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+blah1 <- anova(earnings.mod)
+blah2 <- Anova(earnings.mod, type = "2")
+blah3 <- Anova(earnings.mod, type = "3")
+kable(blah1[], caption = "Type 1 SS", format = "markdown") %>%
+  kable_styling(position = "center") 
+kable(blah2[], caption = "Type 2 SS", format = "markdown") %>%
+  kable_styling(position = "center")
+kable(blah3[], caption = "Type 3 SS", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+### Part C
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+
+```
+
+### Part D
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+
+```
+
+### Part E
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+library(lsmeans)
+earnings.mod <- lm(earnings ~ topic + degree + topic:degree, data = data2)
+
+a = lsmeans(earnings.mod,
+        pairwise ~ degree,
+        adjust = "tukey")
+
+b = lsmeans(earnings.mod,
+        pairwise ~ topic,
+        adjust = "tukey")
+
+kable(a[], caption = "lsmeans degree", format = "markdown") %>%
+  kable_styling(position = "center")
+
+kable(b[], caption ="lsmeans topic", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+## Question 21.1
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+
+```
+
+\newpage
+
+## Question 21.7
+
+### Part A
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+
+```
+
+### Part B
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+p3 <- data3 %>%
+  ggplot(aes(x = block, y = lipd_level, color = fat_content)) +
+  geom_line(aes(group = fat_content)) + geom_point() +
+  labs(x = "Age Block",
+       y = "Lipid Level Reduction",
+       color = "Experimental Diet")
+  scale_color_d3()
+p3
+```
+
+### Part C
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+# original author of the function: Jim Robison-Cox
+# citation: http://fisher.utstat.utoronto.ca/~mahinda/stac52/tukey.txt
+tukeys.add.test <- function(y,A,B){
+## Y is the response vector
+## A and B are factors used to predict the mean of y
+## Note the ORDER of arguments: Y first, then A and B
+   dname <- paste(deparse(substitute(A)), "and", deparse(substitute(B)),
+                  "on",deparse(substitute(y)) )
+   A <- factor(A); B <- factor(B)
+   ybar.. <- mean(y)
+   ybari. <- tapply(y,A,mean)
+   ybar.j <- tapply(y,B,mean)
+   len.means <- c(length(levels(A)), length(levels(B)))
+   SSAB <- sum( rep(ybari. - ybar.., len.means[2]) * 
+                rep(ybar.j - ybar.., rep(len.means[1], len.means[2])) *
+                tapply(y, interaction(A,B), mean))^2 / 
+                  ( sum((ybari. - ybar..)^2) * sum((ybar.j - ybar..)^2))
+   aovm <- anova(lm(y ~ A+B))
+   SSrem <- aovm[3,2] - SSAB
+   dfdenom <- aovm[3,1] - 1
+    STATISTIC <- SSAB/SSrem*dfdenom
+    names(STATISTIC) <- "F"
+    PARAMETER <- c(1, dfdenom)
+    names(PARAMETER) <- c("num df", "denom df")
+    D <- sqrt(SSAB/  ( sum((ybari. - ybar..)^2) * sum((ybar.j - ybar..)^2)))
+    names(D) <- "D estimate"
+    RVAL <- list(statistic = STATISTIC, parameter = PARAMETER, 
+        p.value = 1 - pf(STATISTIC, 1,dfdenom), estimate = D,
+        method = "Tukey's one df F test for Additivity", 
+        data.name = dname)
+    attr(RVAL, "class") <- "htest"
+    return(RVAL)
+   }
+
+tukey.results <- tukeys.add.test(y = data3$lipd_level, A = data3$block, data3$fat_content)
+tukey.results
+```
+
+\newpage
+
+## Question 21.8
+
+### Part A
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+
+```
+
+### Part C
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+
+```
+
+### Part D
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+age_means <- data3 %>%
+  group_by(block, fat_content) %>%
+  summarise(means = mean(lipd_level))
+
+woof <- data3 %>%
+  group_by(fat_content) %>%
+  summarise(means = mean(lipd_level))
+
+D1 = 1.11 - 0.992
+D2 = 0.992 - 0.43
+S2 <- (2*0.00242)/5
+s <- sqrt(S2)
+B <- qt(0.9875,8)
+D1.LL <- D1 - B*s; D1.UL <- D1 + B*s
+D2.LL <- D2 - B*s; D2.UL <- D2 + B*s
+
+blah <- data.frame(
+  D1 = c(D1.LL, D1.UL),
+  D2 = c(D2.LL, D2.UL)
+)
+row.names(blah) <- c("Lower", "Upper")
+kable(blah[], caption = "95 Bonferroni", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+## Question 21.19
+
+```{r, eval = F, echo = T, message = F, warnings = F}
+num <- (5-1)*0.35474 + 5*(3-1)*0.00242
+denom <- (5*3-1)*0.00242
+E.prime <- num/denom
+```
