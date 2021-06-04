@@ -1,0 +1,442 @@
+---
+title: |
+  \vspace{5cm} <center> STP 531 </center>
+  <center> Applied Analysis of Variance </center>
+  <center> Homework 3 </center>
+  
+author: "Nathan A. Nguyen"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  pdf_document:
+    keep_tex: true
+---
+
+```{r setup, include=FALSE, eval = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+library(tidyverse)
+library(knitr)
+library(formatR)
+library(kableExtra)
+# library(psych)
+# library(gridExtra)
+# library(jtools)
+# library(ggpubr)
+library(car)
+# library(GGally)
+# library(ggcorrplot)
+library(matlib)
+library(mvoutlier)
+library(matlab)
+library(ALSM)
+library(ggpubr)
+library(stargazer)
+library(ggfortify)
+library(MASS)
+setwd('C:\\Users\\natha\\Classes\\Current Classes\\STP 531 - Applied Analysis of Variance\\Homework\\Homework 3')
+```
+
+# Question 18.7
+
+## Part B
+
+```{r, eval = T, echo = F, warning = F, message = F, fig.height=8, fig.width=8}
+getdata <- function(...){
+  e = new.env()
+  name = data(..., envir = e)[1]
+  e[[name]]
+}
+
+data <- getdata("WindingSpeeds")
+data <- rename(data, Thread_Breaks = 1, Treatment_Speed = 2, Observations = 3)
+data$Treatment_Speed <- as.factor(data$Treatment_Speed)
+data2 <- data
+data3 <- data
+# cell means model
+model_1 <- lm(Thread_Breaks ~ Treatment_Speed-1, data = data)
+par(mfrow = c(2,2))
+plot(model_1)
+
+deviations <- residuals(model_1)
+hist(deviations, main = "Histogram of Residuals")
+plot(density(deviations))
+```
+
+\newpage
+
+```{r, eval = T, echo = F, message = F, warning = F, fig.height=6, fig.width=10}
+data$fitted_values <- model_1$fitted.values
+data$residuals <- model_1$residuals
+
+p1 <- data %>%
+  ggplot(aes(x = Treatment_Speed, y = residuals)) +
+           geom_boxplot(aes(fill = Treatment_Speed))
+p2 <- data %>%
+  ggplot(aes(x = Treatment_Speed, y = residuals)) +
+  geom_point(aes(color = Treatment_Speed))
+
+g1 <- ggarrange(p1, p2, nrow = 1)
+g1
+
+autoplot(model_1, colour = "Treatment_Speed")
+```
+
+It does not appear that the error variances across the four treatments are the same. There's some a cone shape going on, if we arrange from treatment group 1 to group 4 sequentially.
+
+\newpage
+
+## Part C
+
+Brown-Forsythe Test: also recall that the Brown-Forsythe test is robust against departures from normality.
+
+$$
+\begin{aligned}
+H_{0}:& \ \sigma_{i}^2 \ \text{are all equal} \ i= 1,2,3,4 \\
+H_{a}:& \ \text{not all} \ \sigma_{i}^2 \ \text{are equal}
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+F_{BF}^{*} &= \frac{MSTR}{MSE} \\
+MSTR &= \frac{\sum n_{i}(\bar{d_{i.}}-\bar{d_{..}})^2}{r-1} \\
+MSE &= \frac{\sum\sum(d_{ij}-\bar{d_{i.}})^2}{n_{T}-r} \\
+\bar{d_{i.}} &= \frac{\sum_j d_{ij}}{n_{i}} \\
+\bar{d_{..}} &= \frac{\sum\sum{d_{ij}}}{n_{T}} \\
+d_{ij} &= |Y_{ij} - \tilde{Y_{i}}|          \\
+F_{critical} &= F(1-\alpha; r-1, n_{T}-r)
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+n_T <- dim(data)[1]
+
+# check if cell means sizes are equal
+# table(data$Treatment_Speed) # n_i = n = 16
+n_i = 16
+
+medians <- data %>%
+  group_by(Treatment_Speed) %>%
+  summarise(Y_tilde = median(Thread_Breaks))
+
+medY_1 <- medians$Y_tilde[1]
+medY_2 <- medians$Y_tilde[2]
+medY_3 <- medians$Y_tilde[3]
+medY_4 <- medians$Y_tilde[4]
+
+library(HH)
+hov(Thread_Breaks ~ Treatment_Speed, method = "bf", data = data)
+```
+
+I didn't want to write function(s) to do the Brown-Forsythe or do it line-by-line, so I used the **hov()** in **library(HH).** The $p<0.05$, so there is evidence to reject the null hypothesis in favour of the alternative i.e., there is evidence that the factor level variances are no identical. This also supports the qualitative method in part B (the funnel shape on the residuals plot).
+
+## Part E
+
+```{r, eval = T, echo = F, warning = F, message = F}
+# bc <- boxcox(model_1)
+# lambda <- bc$x[which.max(bc$y)] # lambda = 0 is reasonable.
+
+attach(data)
+library(ALSM)
+BC <- boxcox.sse(Treatment_Speed, Thread_Breaks, l = seq(-1,1,0.1))
+kable(BC[], caption = "SSE for range of lambda", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+Yes, $\lambda =0$, a logarithmic transformation, is a reasonable power transformation.
+
+\newpage
+
+# Question 18.18
+
+We applied a logarithmic transformation.
+
+## Part A
+
+```{r, eval = T, echo = F, warning = F, message = F, results = 'asis'}
+# lambda = 0 power transformation
+model_2 <- lm(log10(Thread_Breaks) ~ Treatment_Speed-1, data = data2)
+data2$residuals <- model_2$residuals
+
+stargazer(model_2, type = "latex", header = F, no.space = T,
+          covariate.labels = c("Slow", "Normal", "Fast", "Maximum"),
+          dep.var.caption = "Thread Breaks (Log-Transformed)",
+          title = "Power Transformation Model")
+
+corgi <- as.data.frame(cbind(
+  Slow = data2$residuals[data2$Treatment_Speed == 1],
+  Normal = data2$residuals[data2$Treatment_Speed == 2],
+  Fast = data2$residuals[data2$Treatment_Speed == 3],
+  Maximum = data2$residuals[data2$Treatment_Speed == 4]
+))
+
+kable(corgi[], caption = "residuals", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+## Part B
+
+```{r, eval = T, echo = F, warning = F, message = F, fig.height=6, fig.width=10}
+autoplot(model_2, colour = "Treatment_Speed")
+
+p3 <- data2 %>%
+  ggplot(aes(x = Treatment_Speed, y = residuals)) +
+           geom_boxplot(aes(fill = Treatment_Speed))
+p4 <- data2 %>%
+  ggplot(aes(x = Treatment_Speed, y = residuals)) +
+  geom_point(aes(color = Treatment_Speed))
+
+g2 <- ggarrange(p3, p4, nrow = 1)
+g2
+
+hamster <- qqnorm(data2$residuals, plot.it = F)
+coef.cor <- cor(hamster$x, hamster$y)
+```
+
+The coefficient of correlation between the ordered residuals and their expected values under normality is
+
+`r coef.cor`. This transformations mediated the variations in the treatment variances by a lot, qualitatively. The funnel shape is not extremely apparent, unlike the raw data residuals.
+
+## Part C
+
+```{r, eval = T, echo = F, warning = F, message = F}
+hov(log10(Thread_Breaks) ~ Treatment_Speed, method = "bf", data = data2)
+```
+
+Since $p >> 0.05$, we fail to reject the null hypothesis. There is insufficient evidence to suggest that the variances among the treatment levels are different.
+
+\newpage
+
+# Question 18.20
+
+$$
+\begin{aligned}
+F_{w}^{*} &= \frac{SSE(R)-SSE(F)}{r-1} \div \frac{SSE(F)}{n_{T}-r} \\
+SSE(F) &= 60,\ SSE(R) = 213.9541 \\
+df_{F} &= 60, \ df_{R} = 63 \\
+r &= 4, \ n_{T} = 64 \\
+F_{critical}^{*} &= F(0.99;3,60) = 4.
+13, \ (\alpha = 0.1)
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+H_{0} &: \mu_{1} = \mu_{2} = \mu_{3} = \mu_{4} \\
+H_{a} &: \text{not all} \ \mu_{i} \ \text{are equal}
+\end{aligned}
+$$
+
+if
+
+$$
+\begin{aligned}
+F_{w}^{*} & < F(0.99;3,60) \approx 4.13, \ \text{conclude} \ H_{0} \\
+F_{w}^{*} & \approx 51.32 > F_{critical}^{*}
+\end{aligned}
+$$
+
+```{r, eval = T, echo = F, warning = F, message = F}
+variances <- data3 %>%
+  group_by(Treatment_Speed) %>%
+  summarise(variances = var(Thread_Breaks)) %>%
+  mutate(w  = 1 / variances)
+
+kable(variances[], caption = "Weighted LS", format = "markdown") %>%
+  kable_styling(position = "center")
+
+w = variances$w
+w = rep(w, each = 16)
+
+# SSE_F
+WLS_model <- lm(Thread_Breaks ~ Treatment_Speed-1, weights = w)
+a <- anova(WLS_model)
+SSE_F <- a$`Sum Sq`[2]
+# SSE_R
+model_H0 <- lm(Thread_Breaks ~ 1, weight =w, data = data3)
+b <- anova(model_H0)
+SSE_R <- b$`Sum Sq`
+
+F_value <- ((SSE_R - SSE_F)/(4-1)) / (SSE_F/(64-4))
+```
+
+There is sufficient evidence to reject the null hypothesis, that not all of the factor level means are equal. In other words, there is sufficient evidence to conclude that the there is a difference between treatment levels.
+
+\newpage
+
+# Question 18.20 (Welch Test)
+
+```{r, eval = T, echo = F, warning = F, message = F}
+library(onewaytests)
+welch.test(Thread_Breaks ~ Treatment_Speed, data = data3)
+oneway.test(Thread_Breaks ~ Treatment_Speed, data = data3)
+```
+
+Enough evidence to suggest that the means are not equal.
+
+\newpage
+
+# Appendix
+
+## Question 18.7
+
+### Part B
+
+```{r, eval = F, echo = T, warning = F, message = F}
+getdata <- function(...){
+  e = new.env()
+  name = data(..., envir = e)[1]
+  e[[name]]
+}
+
+data <- getdata("WindingSpeeds")
+data <- rename(data, Thread_Breaks = 1, Treatment_Speed = 2, Observations = 3)
+data$Treatment_Speed <- as.factor(data$Treatment_Speed)
+
+# cell means model
+model_1 <- lm(Thread_Breaks ~ Treatment_Speed-1, data = data)
+par(mfrow = c(2,2))
+plot(model_1)
+
+deviations <- residuals(model_1)
+hist(deviations, main = "Histogram of Residuals")
+plot(density(deviations))
+
+data$fitted_values <- model_1$fitted.values
+data$residuals <- model_1$residuals
+
+p1 <- data %>%
+  ggplot(aes(x = Treatment_Speed, y = residuals)) +
+           geom_boxplot(aes(fill = Treatment_Speed))
+p2 <- data %>%
+  ggplot(aes(x = Treatment_Speed, y = residuals)) +
+  geom_point(aes(color = Treatment_Speed))
+
+g1 <- ggarrange(p1, p2, nrow = 1)
+g1
+
+autoplot(model_1, colour = "Treatment_Speed")
+```
+
+### Part C
+
+```{r, eval = F, echo = T, warning = F, message = F}
+n_T <- dim(data)[1]
+
+# check if cell means sizes are equal
+# table(data$Treatment_Speed) # n_i = n = 16
+n_i = 16
+
+medians <- data %>%
+  group_by(Treatment_Speed) %>%
+  summarise(Y_tilde = median(Thread_Breaks))
+
+medY_1 <- medians$Y_tilde[1]
+medY_2 <- medians$Y_tilde[2]
+medY_3 <- medians$Y_tilde[3]
+medY_4 <- medians$Y_tilde[4]
+
+library(HH)
+hov(Thread_Breaks ~ Treatment_Speed, method = "bf", data = data)
+```
+
+### Part E
+
+```{r, eval = F, echo = T, warning = F, message = F}
+# bc <- boxcox(model_1)
+# lambda <- bc$x[which.max(bc$y)] # lambda = 0 is reasonable.
+
+attach(data)
+library(ALSM)
+BC <- boxcox.sse(Treatment_Speed, Thread_Breaks, l = seq(-1,1,0.2))
+kable(BC[], caption = "SSE for range of lambda", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+\newpage
+
+## Question 18.18
+
+### Part A
+
+```{r, eval = F, echo = T, warning = F, message = F}
+# lambda = 0 power transformation
+model_2 <- lm(log10(Thread_Breaks) ~ Treatment_Speed-1, data = data2)
+data2$residuals <- model_2$residuals
+
+stargazer(model_2, type = "latex", header = F, no.space = T,
+          covariate.labels = c("Slow", "Normal", "Fast", "Maximum"),
+          dep.var.caption = "Thread Breaks (Log-Transformed)",
+          title = "Power Transformation Model")
+
+corgi <- as.data.frame(cbind(
+  Slow = data2$residuals[data2$Treatment_Speed == 1],
+  Normal = data2$residuals[data2$Treatment_Speed == 2],
+  Fast = data2$residuals[data2$Treatment_Speed == 3],
+  Maximum = data2$residuals[data2$Treatment_Speed == 4]
+))
+
+kable(corgi[], caption = "residuals", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+### Part B
+
+```{r, eval = F, echo = T, warning = F, message = F}
+autoplot(model_2, colour = "Treatment_Speed")
+
+p3 <- data2 %>%
+  ggplot(aes(x = Treatment_Speed, y = residuals)) +
+           geom_boxplot(aes(fill = Treatment_Speed))
+p4 <- data2 %>%
+  ggplot(aes(x = Treatment_Speed, y = residuals)) +
+  geom_point(aes(color = Treatment_Speed))
+
+g2 <- ggarrange(p3, p4, nrow = 1)
+g2
+
+hamster <- qqnorm(data2$residuals, plot.it = F)
+coef.cor <- cor(hamster$x, hamster$y)
+```
+
+### Part C
+
+```{r, eval = F, echo = T, warning = F, message = F}
+hov(log10(Thread_Breaks) ~ Treatment_Speed, method = "bf", data = data2)
+```
+
+\newpage
+
+## Question 18.20
+
+```{r, eval = F, echo = T, warning = F, message = F}
+variances <- data3 %>%
+  group_by(Treatment_Speed) %>%
+  summarise(variances = var(Thread_Breaks)) %>%
+  mutate(w  = 1 / variances)
+
+kable(variances[], caption = "Weighted LS", format = "markdown") %>%
+  kable_styling(position = "center")
+
+w = variances$w
+w = rep(w, each = 16)
+
+# SSE_F
+WLS_model <- lm(Thread_Breaks ~ Treatment_Speed-1, weights = w)
+a <- anova(WLS_model)
+SSE_F <- a$`Sum Sq`[2]
+# SSE_R
+model_H0 <- lm(Thread_Breaks ~ 1, weight =w, data = data3)
+b <- anova(model_H0)
+SSE_R <- b$`Sum Sq`
+
+F_value <- ((SSE_R - SSE_F)/(4-1)) / (SSE_F/(64-4))
+```
+
+### Welch Test
+
+```{r, eval = F, echo = T, warning = F, message = F}
+library(onewaytests)
+welch.test(Thread_Breaks ~ Treatment_Speed, data = data3)
+oneway.test(Thread_Breaks ~ Treatment_Speed, data = data3)
+```
