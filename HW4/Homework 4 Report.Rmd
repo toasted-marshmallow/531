@@ -1,0 +1,737 @@
+---
+title: |
+  \vspace{5cm} <center> STP 531 </center>
+  <center> Applied Analysis of Variance </center>
+  <center> Homework 4 </center>
+  
+author: "Nathan A. Nguyen"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  pdf_document:
+    keep_tex: true
+header-includes:
+  \usepackage{booktabs}
+  \usepackage{longtable}
+  \usepackage{array}
+  \usepackage{multirow}
+  \usepackage{wrapfig}
+  \usepackage{float}
+  \usepackage{colortbl}
+  \usepackage{pdflscape}
+  \usepackage{tabu}
+  \usepackage{threeparttable}
+  \usepackage{threeparttablex}
+  \usepackage[normalem]{ulem}
+  \usepackage{makecell}
+  \usepackage{xcolor}
+---
+
+```{r setup, include=FALSE, eval = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+library(tidyverse)
+library(knitr)
+library(formatR)
+library(kableExtra)
+# library(psych)
+# library(gridExtra)
+# library(jtools)
+# library(ggpubr)
+library(car)
+# library(GGally)
+# library(ggcorrplot)
+# library(matlib)
+# library(mvoutlier)
+# library(matlab)
+library(ALSM)
+library(ggpubr)
+library(stargazer)
+library(ggfortify)
+library(MASS)
+library(ggsci)
+library(gplots)
+setwd('C:\\Users\\natha\\Classes\\Current Classes\\STP 531 - Applied Analysis of Variance\\Homework\\Homework 4')
+```
+
+\newpage
+
+# Question 19.2
+
+The student fails to understand that the number of treatments will increase in the number and complexity because you will have treatment combinations for multi-factor studies. Suppose you have one factor (A) with 3 levels and factor (B) with 3 levels. The number of treatments is $a=3, b = 3 \implies 3*3 = 9$ combination of treatments. The interpretation will also become more complicated if you have interaction between the two factors as well. Imagine now that you had $2^{+}$ factor studies, you will have p-way interactions to analyze (if present) and many more combinations of treatments to look at.
+
+\newpage
+
+# Question 19.5
+
+## Part A
+
+$$
+\begin{aligned}
+\beta_{j} &= \mu_{.j} - \mu_{..} \\
+\mu_{..} &= 269, \mu_{.j} = 269, j = 1,2,3,4 \\
+&\implies \beta_{j} = 0
+\end{aligned}
+$$
+
+In other words, there are no main effects for factor B.
+
+```{r eval = T, echo = F, warning = F, message = F}
+Q19.5_data <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2019%20Data%20Sets/CH19PR05.txt", header = F,
+                         col.names = c("means", "FA", "FB"))
+Q19.5_data$FA <- as.factor(Q19.5_data$FA)
+Q19.5_data$FB <- as.factor(Q19.5_data$FB)
+
+mod.1 <- lm(means ~ FA*FB, data = Q19.5_data)
+blah1 <- aov(means ~ FA*FB, data = Q19.5_data)
+mod.1.table <- model.tables(blah1, type = "means", se = T)
+temp1 <- mod.1.table$tables
+paste0("This is the grand mean: ", temp1$`Grand mean`)
+paste0("These are the factor B means: ", temp1$FB)
+```
+
+## Part B
+
+```{r eval = T, echo = F, warning = F, message = F, fig.width=8, fig.height=6}
+means <- Q19.5_data %>%
+  group_by(FA, FB) %>%
+  summarise(means = mean(means))
+
+p1 <- means %>%
+  ggplot(aes(x = FB, y = means, color = FA)) +
+  geom_line(aes(group = FA)) + geom_point() +
+  labs(x = "Factor B",
+       color = "Factor A",
+       y = "Estimated Treatment Mean",
+       title = "Two Way ANOVA Estimated Treatment Means") +
+  scale_color_d3()
+p1
+```
+
+The lack of parallelism between the two curves suggests that there are interactions present. The interactions look important because the two curves start off at very different "heights" (treatment means) and then converge towards a common treatment mean as the levels of factor B increase.
+
+\newpage
+
+## Part C
+
+```{r eval = T, echo = F, warning = F, message = F, fig.width=8, fig.width=6}
+# means$means <- log(means$means)
+p2 <- means %>%
+  ggplot(aes(x = FB, y = log(means), color = FA)) +
+  geom_line(aes(group = FA)) + geom_point() +
+    labs(x = "Factor B",
+       color = "Factor A",
+       y = "Estimated Treatment Mean",
+       title = "Two Way ANOVA Estimated Treatment Means (log trasformed)") +
+  scale_color_d3()
+p2
+```
+
+A logarithmic transformation of the treatment means does not make the interactions go away, so we still say that there are interactions present.
+
+\newpage
+
+# Question 19.16
+
+## Part A
+
+```{r eval = T, echo = F, warning = F, message = F}
+getdata <- function(...){
+  e = new.env()
+  name = data(..., envir = e)[1]
+  e[[name]]
+}
+
+data2 <- getdata("DiskDriveService")
+data2$A <- as.factor(data2$A)
+data2$B <- as.factor(data2$B)
+
+disk.mod <- lm(y ~ A*B, data = data2)
+temp1 <- data.frame(disk.mod$fitted.values)
+disk.fit = data.frame(
+  Y11 = 59.8,
+  Y12 = 47.8,
+  Y13 = 58.4,
+  Y21 = 48.4,
+  Y22 = 61.2,
+  Y23 = 56.2,
+  Y31 = 60.2, 
+  Y32 = 60.8, 
+  Y33 = 49.6
+)
+row.names(disk.fit) <- "Est. Mean"
+kable(disk.fit[], caption = "Fitted Values", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+## Part B
+
+```{r eval = T, echo = F, warning = F, message = F}
+temp2 <- data.frame(disk.mod$residuals)
+disk.res <- t(temp2)
+# ugly fomat. 
+kable(temp2[], caption = "Disk Residuals", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+Not the prettiest format...
+
+## Part C
+
+```{r eval=T, echo=F, fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
+blah2 <- cbind(temp1,temp2)
+p3 <- blah2 %>%
+  ggplot(aes(x = disk.mod.fitted.values, y = disk.mod.residuals)) +
+  geom_point() + geom_smooth(method = "loess", se = F)
+p3
+```
+
+I don't see anything wrong with the residuals vs. fitted value plot. The assumptions are met. The QQ-plot (next) also don't suggest any serious departures as well.
+
+\newpage
+
+## Part D
+
+```{r eval = T, echo = F, warning = F, message = F, fig.width=8, fig.height=6}
+p4 <- blah2 %>%
+  ggplot(aes(sample = disk.mod.residuals)) +
+  stat_qq() + stat_qq_line(color = "red")
+p4
+
+cat <- qqnorm(blah2$disk.mod.residuals, plot.it = FALSE)
+res.cor <- cor(cat$x, cat$y)
+```
+
+The calculated residuals hug the line pretty well, so the normality assumption is reasonable. The coefficient of correlation is `r res.cor`, more evidence that the normality assumption is appropriate.
+
+## Part E
+
+```{r eval = T, echo = F, warning = F, message = F, fig.width=10, fig.height=5}
+disk.residuals <- data2
+disk.residuals$modFit <- fitted(disk.mod)
+disk.residuals$modRes <- resid(disk.mod)
+
+p5 <- disk.residuals %>%
+  ggplot(aes(x = modFit, y = modRes)) + geom_point() +
+  labs(x = "Fitted Values",
+       y = "Residuals",
+       title = "Factor A") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  facet_wrap(~ A)
+p5
+
+p6 <- disk.residuals %>%
+  ggplot(aes(x = modFit, y = modRes)) + geom_point() +
+  labs(x = "Fitted Values",
+       y = "Residuals",
+       title = "Factor B") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  facet_wrap(~ B)
+p6
+```
+
+The homogeneity of variance assumption looks reasonable. I don't see any obvious patterns across the factor levels for both factors.
+
+\newpage
+
+# Question 19.17
+
+## Part A
+
+```{r eval = T, echo = F, warning = F, message = F, fig.width=10, fig.height=6}
+disk.mod <- lm(y ~ A*B, data = data2)
+anova.tab <- data.frame(anova(disk.mod))
+
+means <- data2 %>%
+  group_by(A,B) %>%
+  summarise(means = mean(y))
+
+p7 <- means %>%
+  ggplot(aes(x = A, y = means, color = B)) +
+  geom_line(aes(group = B)) + geom_point() +
+  scale_colour_startrek() +
+  labs(x = "Technician",
+       y = "Est. Mean",
+       color = "Make")
+p7
+```
+
+There doesn't appear to be any main factor effects going on. It doesn't look like no one technician is outperforming the other and conversely, there doesn't appear to be one technician that is under-performing. The same can be said about the make as well. However, there appears to be significant interaction between the technician and type of disk drive.
+
+## Part B
+
+```{r eval = T, echo = F, warning = F, message = F}
+kable(anova.tab[], caption = "Disk Drive ANOVA Table", format = "markdown") %>% kable_styling(position = "center")
+```
+
+\newpage
+
+## Part C
+
+$$
+\begin{aligned}
+H_{0} &: (\alpha\beta)_{ij} = 0 \ \forall _{ij} \\
+H_{a} &: \ \text{not all} \ (\alpha\beta)_{ij} = 0 \\
+F^{*} &= \frac{MSAB}{MSE} = \frac{303.82}{52.01} \approx 5.841 \\
+F_{critical} &= F(0.99; 4,36) \approx 3.89 \\
+F^{*} &> F_{critical}, \ \text{reject} \ H_{0} \ (\alpha = 0.01) \\
+p &\approx 0.000994
+\end{aligned}
+$$
+
+```{r eval = T, echo = F, warning = F, message = F}
+F.star <- 303.82/52.01
+F.crit <- qf(0.99,4,36)
+p.value <- pf(303.82,4,36,lower.tail = F)
+```
+
+Since $F^{*} > F_{critical}$ and $p<<0.01$, there is sufficient evidence to reject the null hypothesis. There are interactions between the two factors present.
+
+## Part D
+
+$$
+\begin{aligned}
+H_{0} &: (\alpha)_{i} = 0 \ \forall_{i} \\
+H_{a} &: \ \text{not all} \ \alpha_{i} = 0 \\
+F^{*} &= \frac{MSA}{MSE} = \frac{12.29}{52.01} \approx 0.24 \\
+F_{critical} &= F(0.99;2,36) \approx 5.25 \\
+F^{*} &< F_{critical}, \text{fail to reject} \ H_{0} \\
+p &\approx 0.79 > \alpha =0.01
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+H_{0} &: (\beta)_{j} = 0 \ \forall_{j} \\
+H_{a} &: \ \text{not all} \ \beta_{j} = 0 \\
+F^{*} &= \frac{MSB}{MSE} = \frac{14.16}{52.01} \approx 0.27 \\
+F_{critical} &= F(0.99;2,36) \approx 5.25 \\
+F^{*} &< F_{critical}, \text{fail to reject} \ H_{0} \\
+p &\approx 0.76 > \alpha = 0.01
+\end{aligned}
+$$
+
+```{r eval = T, echo = F, warning = F, message = F}
+F.starA <- 12.29/52.01
+F.crit <- qf(0.99,2,36)
+F.starB <- 14.16/52.01
+pA <- pf(0.24,2,36,lower.tail = F)
+pB <- pf(0.27,2,36,lower.tail = F)
+```
+
+We fail to reject both of the null hypothesis for testing for main effects for factor A and factor B. There is sufficient evidence to suggest that there are no meaningful main effects. Furthermore, it is not meaningful to test for the main effects since we have established that there are interactions present. Those are more interesting to look at.
+
+## Part F
+
+Yes. Part D does confirm my initial speculations in part A.
+
+```{r eval = T, echo = F, warning = F, message = F}
+
+```
+
+\newpage
+
+# Question 19.33
+
+## Part A
+
+$$
+\begin{aligned}
+\hat{\mu_{11}} &= \bar{Y11.} = 59.8, \ \alpha =0.01 \\
+s^{2}\{\bar{Y_{11}}\} &= \frac{MSE}{n} = \frac{52.01}{5} \approx 10.402 \\
+s\{\bar{Y_{11}}\} &\approx 3.23 \\
+t^{*} &= t(0.995,36) \approx 2.72 \\
+\bar{Y_{11}} &\pm t^{*}s\{\bar{Y_{11}}\} = 59.8 \pm 2.792(3.23)
+\end{aligned}
+$$
+
+```{r eval = T, echo = F, warning = F, message = F}
+mu11 <- 59.8
+s2 <- 52.01/(5)
+s <- sqrt(s2)
+t <- qt(0.995,36)
+mu11.LL <- mu11 - t*s; mu11.UL <- mu11 + t*s
+moo <- data.frame(
+  Lower = mu11.LL,
+  Upper = mu11.UL
+)
+moo
+```
+
+The $99\%$ confidence interval for $\mu_{11}$ is $51.03 \leq \mu_{11} \leq 68.57$. The mean time it takes for technician 1 working on disk drive type 1 is somewhere between $51.03$ and $68.57$ minutes required to complete the repair job. This is at the $99\%$ confidence level.
+
+## Part B
+
+$$
+\begin{aligned}
+\hat{D} &= \bar{Y_{22}} - \bar{Y_{21}}, \ \alpha = 0.01 \\ 
+\bar{Y_{22}} &= 61.2, \ \bar{Y_{21}} = 48.4 \\
+\implies \hat{D} &= 12.8 \\
+s^{2}\{\hat{D}\} &= \frac{2MSE}{n} = \frac{2(52.01)}{5} = \approx20.804 \\
+s\{\hat{D}\} &= 4.56, \ t^{*} = 2.72 \\
+\hat{D} &\pm t^{*}s\{\hat{D}\} = 12.8 \pm2.72(4.56)
+\end{aligned}
+$$
+
+```{r eval = T, echo = F, warning = F, message = F}
+D = 61.2-48.4
+s2 = (2*52.01)/5
+s = sqrt(s2)
+D.LL = D - t*s; D.UL = D +t*s
+meow = data.frame(
+  Lower = D.LL,
+  Upper = D.UL
+)
+meow
+```
+
+The $99\%$ interval for this contrast is $0.396 \leq D \leq 25.204$ ($0.396 \leq \mu_{22} - \mu_{21} \leq 25.204$). So, this says that with $99\%$ confidence that the mean time to complete a repair job for disk type 2 is longer than disk type 1 (FOR TECHNICIAN 2).
+
+\newpage
+
+## Part C
+
+$$
+\begin{aligned}
+&\text{There are g comparisons}, \ g=3 \\
+B &= t\bigg(1-\frac{0.05}{2(3)};36\bigg) \approx 2.51 \\
+D_{i} &\pm Bs\{D_{i}\}, \ i =1,2,...,9
+\end{aligned}
+$$
+
+```{r eval = T, echo = F, warning = F, message = F}
+# for the for loop
+D1 = means$means[1]-means$means[2]
+D2 = means$means[1]-means$means[3]
+D3 = means$means[2]-means$means[3]
+D4 = means$means[4]-means$means[5]
+D5 = means$means[4]-means$means[6]
+D6 = means$means[5]-means$means[6]
+D7 = means$means[7]-means$means[8]
+D8 = means$means[7]-means$means[9]
+D9 = means$means[8]-means$means[9]
+D = c(D1,D2,D3,D4,D5,D6,D7,D8,D9) # to iterate over
+pig = data.frame(
+  D1 = D1,
+  D2 = D2,
+  D3 = D3,
+  D4 = D4,
+  D5 = D5,
+  D6 = D6,
+  D7 = D7,
+  D8 = D8,
+  D9 = D9
+)
+sd <- sqrt((2*52.01)/5) # same as prior
+
+#bonferroni correction
+B =qt(0.9916667, 36) # g = 3 => 9 comparisons
+Lower = rep(0,9) # initialize 
+Upper = rep(0,9)
+# for loop to construct the lower and upper bounds for each comparison
+for(i in 1:9){
+  Lower[i] = D[i]-B*sd
+  Upper[i] = D[i]+B*sd
+}
+Bon_pairwise = data.frame(Lower, Upper)
+rownames(Bon_pairwise) <- c("D1", "D2", "D3",
+                            "D4", "D5", "D6",
+                            "D7", "D8", "D9")
+
+kable(pig[], caption = "Comparisons", format = "markdown") %>%
+  kable_styling(position = "center")
+
+kable(Bon_pairwise[], caption = "Bonferroni 95% comparisons", format = "markdown") %>% kable_styling(position = "center")
+```
+
+Using the Bonferroni procedure with family confidence $0.95$:
+
+-   technician 1 works best with drive model 2 (time to repair is short than model 1)
+
+-   technician 3 works best with drive model 3; however not much different than the other models
+
+-   technician 2 works best with drive model 1
+
+\newpage
+
+# Appendix
+
+## Question 19.5
+
+### Part A
+
+```{r eval = F, echo = T, warning = F, message = F}
+Q19.5_data <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2019%20Data%20Sets/CH19PR05.txt", header = F,
+                         col.names = c("means", "FA", "FB"))
+Q19.5_data$FA <- as.factor(Q19.5_data$FA)
+Q19.5_data$FB <- as.factor(Q19.5_data$FB)
+
+mod.1 <- lm(means ~ FA*FB, data = Q19.5_data)
+blah1 <- aov(means ~ FA*FB, data = Q19.5_data)
+mod.1.table <- model.tables(blah1, type = "means", se = T)
+temp1 <- mod.1.table$tables
+paste0("This is the grand mean: ", temp1$`Grand mean`)
+paste0("These are the factor B means: ", temp1$FB)
+```
+
+### Part B
+
+```{r eval = F, echo = T, warning = F, message = F}
+means <- Q19.5_data %>%
+  group_by(FA, FB) %>%
+  summarise(means = mean(means))
+
+p2 <- means %>%
+  ggplot(aes(x = FB, y = means, color = FA)) +
+  geom_line(aes(group = FA)) + geom_point() +
+  labs(x = "Factor B",
+       color = "Factor A",
+       y = "Estimated Treatment Mean",
+       title = "Two Way ANOVA Estimated Treatment Means") +
+  scale_color_d3()
+p2
+```
+
+### Part C
+
+```{r eval = F, echo = T, warning = F, message = F}
+# means$means <- log(means$means)
+p2 <- means %>%
+  ggplot(aes(x = FB, y = log(means), color = FA)) +
+  geom_line(aes(group = FA)) + geom_point() +
+    labs(x = "Factor B",
+       color = "Factor A",
+       y = "Estimated Treatment Mean",
+       title = "Two Way ANOVA Estimated Treatment Means (log trasformed)") +
+  scale_color_d3()
+p2
+```
+
+\newpage
+
+## Question 19.16
+
+### Part A
+
+```{r eval = F, echo = T, warning = F, message = F}
+getdata <- function(...){
+  e = new.env()
+  name = data(..., envir = e)[1]
+  e[[name]]
+}
+
+data2 <- getdata("DiskDriveService")
+data2$A <- as.factor(data2$A)
+data2$B <- as.factor(data2$B)
+
+disk.mod <- lm(y ~ A*B, data = data2)
+temp1 <- data.frame(disk.mod$fitted.values)
+disk.fit = data.frame(
+  Y11 = 59.8,
+  Y12 = 47.8,
+  Y13 = 58.4,
+  Y21 = 48.4,
+  Y22 = 61.2,
+  Y23 = 56.2,
+  Y31 = 60.2, 
+  Y32 = 60.8, 
+  Y33 = 49.6
+)
+row.names(disk.fit) <- "Est. Mean"
+kable(disk.fit[], caption = "Fitted Values", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+### Part B
+
+```{r eval = F, echo = T, warning = F, message = F}
+temp2 <- data.frame(disk.mod$residuals)
+disk.res <- t(temp2)
+# ugly fomat. 
+kable(temp2[], caption = "Disk Residuals", format = "markdown") %>%
+  kable_styling(position = "center")
+```
+
+### Part C
+
+```{r eval = F, echo = T, warning = F, message = F, fig.width=8, fig.height=6}
+blah2 <- cbind(temp1,temp2)
+p3 <- blah2 %>%
+  ggplot(aes(x = disk.mod.fitted.values, y = disk.mod.residuals)) +
+  geom_point() + geom_smooth(method = "loess", se = F)
+p3
+```
+
+### Part D
+
+```{r eval = F, echo = T, warning = F, message = F}
+p4 <- blah2 %>%
+  ggplot(aes(sample = disk.mod.residuals)) +
+  stat_qq() + stat_qq_line(color = "red")
+p4
+
+cat <- qqnorm(blah2$disk.mod.residuals, plot.it = FALSE)
+res.cor <- cor(cat$x, cat$y)
+```
+
+### Part E
+
+```{r eval = F, echo = T, warning = F, message = F}
+disk.residuals <- data2
+disk.residuals$modFit <- fitted(disk.mod)
+disk.residuals$modRes <- resid(disk.mod)
+
+p5 <- disk.residuals %>%
+  ggplot(aes(x = modFit, y = modRes)) + geom_point() +
+  labs(x = "Fitted Values",
+       y = "Residuals",
+       title = "Factor A") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  facet_wrap(~ A)
+p5
+
+p6 <- disk.residuals %>%
+  ggplot(aes(x = modFit, y = modRes)) + geom_point() +
+  labs(x = "Fitted Values",
+       y = "Residuals",
+       title = "Factor B") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  facet_wrap(~ B)
+p6
+```
+
+\newpage
+
+## Question 19.17
+
+### Part A
+
+```{r eval = F, echo = T, warning = F, message = F}
+disk.mod <- lm(y ~ A*B, data = data2)
+anova.tab <- data.frame(anova(disk.mod))
+
+means <- data2 %>%
+  group_by(A,B) %>%
+  summarise(means = mean(y))
+
+p7 <- means %>%
+  ggplot(aes(x = A, y = means, color = B)) +
+  geom_line(aes(group = B)) + geom_point() +
+  scale_colour_startrek() +
+  labs(x = "Technician",
+       y = "Est. Mean",
+       color = "Make")
+p7
+```
+
+### Part B
+
+```{r eval = F, echo = T, warning = F, message = F}
+kable(anova.tab[], caption = "Disk Drive ANOVA Table", format = "markdown") %>% kable_styling(position = "center")
+```
+
+No, one factor doesn't explain most of the variability over the other factor. Their sum of squares and mean squares are different, but only marginally. Furthermore both p-values $p > 0.05$ for the main effects.
+
+### Part C
+
+```{r eval = F, echo = T, warning = F, message = F}
+F.star <- 303.82/52.01
+F.crit <- qf(0.99,4,36)
+p.value <- pf(303.82,4,36,lower.tail = F)
+```
+
+### Part D
+
+```{r eval = F, echo = T, warning = F, message = F}
+F.starA <- 12.29/52.01
+F.crit <- qf(0.99,2,36)
+F.starB <- 14.16/52.01
+pA <- pf(0.24,2,36,lower.tail = F)
+pB <- pf(0.27,2,36,lower.tail = F)
+```
+
+### Part F
+
+```{r eval = F, echo = T, warning = F, message = F}
+
+```
+
+\newpage
+
+## Question 19.33
+
+### Part A
+
+```{r eval = F, echo = T, warning = F, message = F}
+mu11 <- 59.8
+s2 <- 52.01/(5)
+s <- sqrt(s2)
+t <- qt(0.995,36)
+mu11.LL <- mu11 - t*s; mu11.UL <- mu11 + t*s
+moo <- data.frame(
+  Lower = mu11.LL,
+  Upper = mu11.UL
+)
+moo
+```
+
+### Part B
+
+```{r eval = F, echo = T, warning = F, message = F}
+D = 61.2-48.4
+s2 = (2*52.01)/5
+s = sqrt(s2)
+D.LL = D - t*s; D.UL = D +t*s
+meow = data.frame(
+  Lower = D.LL,
+  Upper = D.UL
+)
+meow
+```
+
+### Part C
+
+```{r eval = F, echo = T, warning = F, message = F}
+# for the for loop
+D1 = means$means[1]-means$means[2]
+D2 = means$means[1]-means$means[3]
+D3 = means$means[2]-means$means[3]
+D4 = means$means[4]-means$means[5]
+D5 = means$means[4]-means$means[6]
+D6 = means$means[5]-means$means[6]
+D7 = means$means[7]-means$means[8]
+D8 = means$means[7]-means$means[9]
+D9 = means$means[8]-means$means[9]
+D = c(D1,D2,D3,D4,D5,D6,D7,D8,D9) # to iterate over
+pig = data.frame(
+  D1 = D1,
+  D2 = D2,
+  D3 = D3,
+  D4 = D4,
+  D5 = D5,
+  D6 = D6,
+  D7 = D7,
+  D8 = D8,
+  D9 = D9
+)
+sd <- sqrt((2*52.01)/5) # same as prior
+
+#bonferroni correction
+B =qt(0.9916667, 36) # g = 3 => 9 comparisons
+Lower = rep(0,9) # initialize 
+Upper = rep(0,9)
+# for loop to construct the lower and upper bounds for each comparison
+for(i in 1:9){
+  Lower[i] = D[i]-B*sd
+  Upper[i] = D[i]+B*sd
+}
+Bon_pairwise = data.frame(Lower, Upper)
+rownames(Bon_pairwise) <- c("D1", "D2", "D3",
+                            "D4", "D5", "D6",
+                            "D7", "D8", "D9")
+
+kable(pig[], caption = "Comparisons", format = "markdown") %>%
+  kable_styling(position = "center")
+
+kable(Bon_pairwise[], caption = "Bonferroni 95% comparisons", format = "markdown") %>% kable_styling(position = "center")
+
+```
